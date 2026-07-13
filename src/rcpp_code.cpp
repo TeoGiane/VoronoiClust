@@ -313,7 +313,6 @@ double telescopic_dependence_rcpp(const arma::vec& z1, const arma::vec& z2) {
 
 // Function to update oracle_coclustering and oracle_posterior
 // [[Rcpp::export]]
-
 Rcpp::List updateOracle_rcpp(arma::mat& oracle_posterior, arma::mat& oracle_coclustering,
                              const arma::mat& pnts1, const arma::mat& clust_centres1, const arma::mat& Cov1,
                              const arma::vec& tempprobs) {
@@ -439,38 +438,51 @@ arma::vec update_z2_rcpp(arma::vec z1, arma::vec z2, arma::vec gamma_d, double M
 // Assume that z is ordered 1 1 3 2 2 and not 1 1 5 7 7, and that 1 corresponds to the first medoid that shows up in gamma, 2 corresponds to the second medoid in gamma, etc...
 // [[Rcpp::export]]
 double get_log_prob_D_tesselation_2_rcpp(const arma::mat& D, const arma::uvec& z, const arma::uvec& centers, bool repulsion, const List& params) {
-  // Extract parameters from the params list
+  // Rcpp::Rcout << "mcmc_tessellation::get_log_prob_D_tesselation_2_rcpp()" << std::endl;
+  // Extract parameters from the params list (linear log-likelihood)
+  double delta1 = as<double>(params["delta1"]);
   double mu = as<double>(params["mu"]);
   double beta = as<double>(params["beta"]);
-  double delta1 = as<double>(params["delta1"]);
-  double theta = as<double>(params["theta"]);
-  //double zeta = as<double>(params["zeta"]);
-  //double gamma = as<double>(params["gamma"]);
   double delta2 = as<double>(params["delta2"]);
+  double theta = as<double>(params["theta"]);
   
+  // Compute number of centers
   unsigned int K = centers.n_elem;
   
+  // Compute log-likelihood (linear)
   double log_lik = 0;
-
   for (unsigned int k = 0; k < K; ++k) {
-    arma::uvec index_select = find(z == (k + 1));  // Increment by 1 to match R's 1-based index
-    if (index_select.n_elem == 1) continue;
-    arma::rowvec selected_row = D.row(centers[k]-1);         // Get the row corresponding to the center
-    arma::vec distances = selected_row.elem(index_select); // Extract the elements by index_select
-    distances = distances.elem(find(distances > 0));
+    // Select center index (subtract 1 to match C++ 0-based index)
+    unsigned int center_idx = centers[k] - 1;
+    // Find all elements in cluster excluding current centre (add 1 to match R 1-based index)
+    arma::uvec index_select = find(z == (k + 1));
+    index_select = index_select.elem(find(index_select != center_idx));
+    // If current cluster is a singleton, skip
+    if (index_select.is_empty()) continue;
+    // Extract distances to compute log-likelihodd
+    arma::rowvec D_row = D.row(center_idx);
+    arma::vec distances = D_row.elem(index_select);
     unsigned int n_d = distances.n_elem;
     
+    // arma::uvec index_select = find(z == (k + 1));  // Increment by 1 to match R's 1-based index
+    // if (index_select.n_elem == 1) continue;
+    // arma::rowvec selected_row = D.row(centers[k]-1);         // Get the row corresponding to the center
+    // arma::vec distances = selected_row.elem(index_select); // Extract the elements by index_select
+    // distances = distances.elem(find(distances > 0));
+    // unsigned int n_d = distances.n_elem;
+    
+    // Compute log-likelihood for current cluster
     log_lik +=  mu * log(beta) + (delta1 - 1) * sum(log(distances)) +
       (-mu - delta1 * n_d) * log(beta + sum(distances)) -
       n_d * lgamma(delta1) +
       lgamma(mu + n_d * delta1 ) - lgamma(mu); //optimize this some terms can be out of sum....
-    
   }
   
   //unsigned int n         = z.n_elem;
   //double cal_const =  (n - K)/(K*(K-1)/2);
   //double log_norm_constant = -delta2*cal_const*log(theta) - (-1 + cal_const - delta2*cal_const)*(log(cal_const) + log(theta)) +  cal_const*lgamma(delta2) - lgamma(1 + (-1 + delta2)*cal_const);
-    
+  
+  // Add repulsion component if required
   if (repulsion && K > 1) {
     arma::mat D_centers = D.submat(centers-1, centers-1);
     
@@ -478,7 +490,7 @@ double get_log_prob_D_tesselation_2_rcpp(const arma::mat& D, const arma::uvec& z
     
     unsigned int n_d = distances.n_elem;
     
-    log_lik +=   n_d*delta2*log(theta) - n_d*lgamma(delta2) -theta*sum(distances) + (delta2-1)*sum(log(distances));
+    log_lik += n_d*delta2*log(theta) - n_d*lgamma(delta2) - theta*sum(distances) + (delta2-1)*sum(log(distances));
     
     // old gamma-gamma likelihood
     //zeta * log(gamma) + (delta2 - 1) * sum(log(distances)) - (zeta + delta2 * distances.n_elem) * log(gamma + sum(distances))
@@ -494,17 +506,18 @@ double get_log_prob_D_tesselation_2_rcpp(const arma::mat& D, const arma::uvec& z
 
 // [[Rcpp::export]]
 double get_log_prob_D_tesselation_rcpp(const arma::mat& D, const arma::vec& z, const arma::uvec& centers, bool repulsion, const List& params) {
-  
-  
+  // Rcpp::Rcout << "mcmc_tessellation::get_log_prob_D_tesselation_rcpp()" << std::endl;
+  // Extract parameters from the params list (quadratic log-likelihood)
   double delta1 = as<double>(params["delta1"]);
-  double zeta   = as<double>(params["zeta"]);
-  double delta2 = as<double>(params["delta2"]);
-  double gamma  = as<double>(params["gamma"]);
   double mu     = as<double>(params["mu"]);
   double beta   = as<double>(params["beta"]);
+  double delta2 = as<double>(params["delta2"]);
+  double zeta   = as<double>(params["zeta"]);
+  double gamma  = as<double>(params["gamma"]);
   
   
   arma::vec unique_z = unique(z);
+  // Rcpp::Rcout << "unique_z: " << unique_z.t() << std::endl;
   int K = unique_z.n_elem;
   arma::mat log_Lkt = arma::zeros<arma::mat>(K, K); // Matrix initialization with zeros
   
@@ -519,11 +532,13 @@ double get_log_prob_D_tesselation_rcpp(const arma::mat& D, const arma::vec& z, c
       
       arma::vec distances = D_k(trimatu_ind( size(D_k) , 1));
       distances           = distances.elem(find_finite(distances));    //remove NAs
+      // Rcpp::Rcout << "distances: " << distances.t();
       
       log_Lkt(k, k)  = mu * log(beta) + (delta1 - 1) * sum(log(distances)) +
         (-mu - delta1 * distances.size()) * log(beta + sum(distances)) -
         distances.size() * lgamma(delta1) +
         lgamma(mu + distances.size() * delta1 ) - lgamma(mu);
+      // Rcpp::Rcout << "log_Lkt(" << k << "," << k << "): " <<  log_Lkt(k, k) << std::endl << std::endl;
     }
     
   }
@@ -546,7 +561,8 @@ if (K > 1 && repulsion) {
    }
  }
   
-  
+  // Rcpp::Rcout << "log_Lkt:" << std::endl;
+  // Rcpp::Rcout << log_Lkt << std::endl;
   return accu(log_Lkt);
 }
 
