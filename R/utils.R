@@ -1,4 +1,4 @@
-#' Get Empirical Bayes Parameters
+#' Compute Empirical Bayes Parameters
 #'
 #' Computes empirical Bayes hyperparameters from data using k-medoids clustering.
 #'
@@ -6,16 +6,18 @@
 #' @param k Number of clusters for initial k-medoids
 #' @param k2 Optional cluster assignments; if NULL, k-medoids clustering is performed
 #' @param linear Logical; if TRUE uses linear model, if FALSE uses quadratic (default FALSE)
+#' @param repulsion Optional parameter: will the sampler consider the repulsive term in the marginal likelihood? (default TRUE)
 #'
 #' @return List of hyperparameters for the model
-#' @keywords internal
-get_EB_params <- function(D,k,k2=NULL, linear = FALSE){
+#' @export
+compute_EB_params <- function(D, k, k2=NULL, linear = FALSE, repulsion = TRUE){
   if(linear){
-    return(get_EB_params_linear(D,k,k2))
-  }else{
-    return(get_EB_params_quadratic(D,k,k2))
+    return(compute_EB_params_linear(D, k, k2, repulsion))
+  } else {
+    return(compute_EB_params_quadratic(D, k, k2, repulsion))
   }
 }
+
 
 #' Linear Empirical Bayes Parameters
 #'
@@ -24,10 +26,11 @@ get_EB_params <- function(D,k,k2=NULL, linear = FALSE){
 #' @param D Distance matrix
 #' @param K Number of clusters
 #' @param k2 Optional cluster assignments; if NULL, k-medoids clustering is performed
+#' @param repulsion Optional parameter: will the sampler consider the repulsive term in the marginal likelihood?
 #'
 #' @return List of hyperparameters
 #' @keywords internal
-get_EB_params_linear <- function(D, K, k2=NULL){
+compute_EB_params_linear <- function(D, K, k2 = NULL, repulsion = TRUE) {
   n <- nrow(D)
   if(is.null(k2)){
     medoidsfit <- fastkmedoids::fastpam(D, n, K)#, ...) #FCPS::kmeansClustering(D,K)$Cls    
@@ -71,8 +74,9 @@ get_EB_params_linear <- function(D, K, k2=NULL){
   
   return(list(delta1=delta1, mu=mu, beta=beta, delta2 = delta2, theta = theta,
               z.init = k2, medoids.init = medoids, within_distance = within_distance, between_distance = between_distance,
-              linear=TRUE))
+              linear = TRUE, repulsion = repulsion))
 }
+
 
 #' Quadratic Empirical Bayes Parameters
 #'
@@ -81,10 +85,11 @@ get_EB_params_linear <- function(D, K, k2=NULL){
 #' @param D Distance matrix
 #' @param K Number of clusters
 #' @param k2 Optional cluster assignments; if NULL, k-medoids clustering is performed
+#' @param repulsion Optional parameter: will the sampler consider the repulsive term in the marginal likelihood?
 #'
 #' @return List of hyperparameters
 #' @keywords internal
-get_EB_params_quadratic <- function(D, K, k2=NULL){
+compute_EB_params_quadratic <- function(D, K, k2 = NULL, repulsion = TRUE) {
   n <- nrow(D)
   if(is.null(k2)){
     medoidsfit <- fastkmedoids::fastpam(D, n, K)    
@@ -124,10 +129,11 @@ get_EB_params_quadratic <- function(D, K, k2=NULL){
   #hist(between_distance)
   #hist(rgamma(1000,delta2,rgamma(1000,zeta,gamma)))
   
-  return(list(delta1=delta1, mu=mu, beta=beta, delta2 = delta2, zeta = zeta,
-              gamma = gamma, z.init = k2, medoids.init = medoids,
-              linear=FALSE))
+  return(list(delta1=delta1, mu=mu, beta=beta, delta2 = delta2, zeta = zeta, gamma = gamma,
+              z.init = k2, medoids.init = medoids, within_distance = within_distance, between_distance = between_distance,
+              linear = FALSE, repulsion = repulsion))
 }
+
 
 #' Within-Cluster Sum of Squares for K-medoids
 #'
@@ -175,9 +181,9 @@ WSS_kmeans <- function(D,Kmax){
 #' @param clusts1 Optional cluster assignments for layer 1
 #'
 #' @return List containing generated data and cluster assignments
-#' @keywords internal
-generateMixture <- function(N, K, M = K, dim = K, radius = 1, sigma1 = 0.1, sigma2 = 0.1, alpha = 0, seed = NULL,
-                           compute.oracle = FALSE, rcpp = TRUE, clusts1 = NULL) {
+#' @export
+generate_mixture <- function(N, K, M = K, dim = K, radius = 1, sigma1 = 0.1, sigma2 = 0.1, alpha = 0, seed = NULL,
+                             compute.oracle = FALSE, rcpp = TRUE, clusts1 = NULL) {
   # input validation 
   stopifnot(N >= 1, K >= 1, K <= N, M > 0, dim >= K, radius > 0, sigma1 > 0, sigma2 > 0)
   
@@ -186,7 +192,7 @@ generateMixture <- function(N, K, M = K, dim = K, radius = 1, sigma1 = 0.1, sigm
   }
   
   #cluster assignment - first layer
-  probs <- GPBayes::rdirichlet(1, rep(M, K))
+  probs <- MCMCpack::rdirichlet(1, rep(M, K))
   if(is.null(clusts1)){
     clusts1 <- sort(sample(1:K, N, replace = TRUE, prob = probs))
   }
@@ -225,30 +231,32 @@ generateMixture <- function(N, K, M = K, dim = K, radius = 1, sigma1 = 0.1, sigm
     oracle_coclustering <- matrix(0, nrow = N, ncol = N)
     for (c in 1:numiters) {
       tempprobs <- rdirichlet(1, rep(M, K))
-      
       if(rcpp){
         update_oracle_list  <- updateOracle_rcpp(oracle_posterior,oracle_coclustering,pnts1,clust_centres,Cov1,tempprobs)
         oracle_posterior    <-  update_oracle_list$oracle_posterior
         oracle_coclustering <- update_oracle_list$oracle_coclustering
-      }
-      else{
+      } else {
         for (i in 1:N) {
           for (j in 1:K) {
-            oracle_posterior[j, i] <- tempprobs[j] * GPBayes::dmvnorm(pnts1[i,], clust_centres[j,], Cov1)
+            oracle_posterior[j, i] <- tempprobs[j] * mclust::dmvnorm(pnts1[i,], clust_centres[j,], Cov1)
           }
           oracle_posterior[, i] <- oracle_posterior[, i] / sum(oracle_posterior[, i])
         }
         oracle_coclustering <- oracle_coclustering + t(oracle_posterior) %*% oracle_posterior
+      }
+    }
+    oracle_coclustering1 <- oracle_coclustering / numiters #oracle coclustering matrix
+    
+    ### LAYER 2
+    oracle_posterior <- matrix(0, nrow = K, ncol = N)
+    oracle_coclustering <- matrix(0, nrow = N, ncol = N)
     for (c in 1:numiters) {
-      tempprobs <- GPBayes::rdirichlet(1, rep(M, K))
-      
-      if(rcpp){
+      tempprobs <- MCMCpack::rdirichlet(1, rep(M, K))
+      if(rcpp) {
         update_oracle_list <- updateOracle_rcpp(oracle_posterior,oracle_coclustering,pnts2,clust_centres,Cov2,tempprobs)
         oracle_posterior <-  update_oracle_list$oracle_posterior
         oracle_coclustering <- update_oracle_list$oracle_coclustering
-      }
-      
-      else{
+      } else {
         for (i in 1:N) {
           for (j in 1:K) {
             oracle_posterior[j, i] <- tempprobs[j] * GPBayes::dmvnorm(pnts2[i,], clust_centres[j,], Cov1)
@@ -257,13 +265,10 @@ generateMixture <- function(N, K, M = K, dim = K, radius = 1, sigma1 = 0.1, sigm
         }
         oracle_coclustering <- oracle_coclustering + t(oracle_posterior) %*% oracle_posterior
       }
-      
     }
     oracle_coclustering2 <- oracle_coclustering / numiters #oracle coclustering matrix
-    
-    
-  }
-  else{
+
+  } else{
     oracle_coclustering1 <- NULL
     oracle_coclustering2 <- NULL
   }
@@ -277,6 +282,7 @@ generateMixture <- function(N, K, M = K, dim = K, radius = 1, sigma1 = 0.1, sigm
               oracle_coclustering1 = oracle_coclustering1,
               oracle_coclustering2 = oracle_coclustering2))
 }
+
 
 #' Telescopic Dependence Between Clusterings
 #'
@@ -328,7 +334,7 @@ telescopic_dependence <- function(z1,z2,rcpp=TRUE){
 #' @param output_name Name of element to extract
 #'
 #' @return Matrix of extracted values
-#' @keywords internal
+#' @export
 to_matrix <- function(output,output_name){
   if( length(output[[1]][[output_name]]) > 1 ){
     return(do.call(rbind,lapply(output, function(x) x[[output_name]])))
@@ -440,7 +446,21 @@ get_plots <- function(fit,lags = 50){
 }
 
 
-coclustering <- function(samples){
+#' Compute Co-clustering Probability Matrix
+#'
+#' Computes the co-clustering probability matrix from MCMC samples,
+#' where each entry (i,j) represents the proportion of iterations
+#' in which items i and j were assigned to the same cluster.
+#'
+#' @param samples A matrix of cluster assignments where rows are MCMC iterations
+#'   and columns are items/observations.
+#'
+#' @return A symmetric matrix of size n x n (where n is the number of items)
+#'   containing the co-clustering probabilities. Entry (i,j) represents the
+#'   proportion of MCMC iterations where items i and j were in the same cluster.
+#' 
+#' @export
+coclustering <- function(samples) {
   n <- ncol(samples)
   s <- matrix(NA, n, n)
   for(i in 1:n){
