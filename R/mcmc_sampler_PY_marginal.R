@@ -12,16 +12,16 @@
 #' @return Updated value of M parameter
 #' @keywords internal
 update_M_marginal <- function(z, M, theta, params, rcpp){
-  list2env(params,.GlobalEnv)
+  # list2env(params,.GlobalEnv)
   
-  candidate_M   <- truncnorm::rtruncnorm(1, a=0, mean = M, sd = metropolis_M_sd)
+  candidate_M   <- truncnorm::rtruncnorm(1, a=0, mean = M, sd = params$metropolis_M_sd)
   
   
-  candidate_log_prob <-  get_log_prob_partition(z, candidate_M, theta,rcpp) + dexp(candidate_M,lambda.M, log = TRUE)
-  old_log_prob       <-  get_log_prob_partition(z, M, theta, rcpp) + dexp(M, lambda.M, log = TRUE)
+  candidate_log_prob <-  get_log_prob_partition(z, candidate_M, theta,rcpp) + dexp(candidate_M, params$lambda.M, log = TRUE)
+  old_log_prob       <-  get_log_prob_partition(z, M, theta, rcpp) + dexp(M, params$lambda.M, log = TRUE)
   
-  log_transition_prob_old_new <- log(dtruncnorm(M, mean = candidate_M, sd = metropolis_M_sd))
-  log_transition_prob_new_old <- log(dtruncnorm(candidate_M, mean = M, sd = metropolis_M_sd))
+  log_transition_prob_old_new <- log(truncnorm::dtruncnorm(M, mean = candidate_M, sd = params$metropolis_M_sd))
+  log_transition_prob_new_old <- log(truncnorm::dtruncnorm(candidate_M, mean = M, sd = params$metropolis_M_sd))
   
   accept_ratio  <- exp(log_transition_prob_old_new - log_transition_prob_new_old +  candidate_log_prob - old_log_prob)
   if(runif(1)<=accept_ratio){
@@ -46,15 +46,15 @@ update_M_marginal <- function(z, M, theta, params, rcpp){
 #' @return Updated value of theta parameter
 #' @keywords internal
 update_theta_marginal <- function(z,  M, theta, params,rcpp){
-  list2env(params,.GlobalEnv)
-  candidate_theta   <- truncnorm::rtruncnorm(1, a=0, b=1, mean = theta, sd = metropolis_theta_sd)
+  # list2env(params,.GlobalEnv)
+  candidate_theta   <- truncnorm::rtruncnorm(1, a=0, b=1, mean = theta, sd = params$metropolis_theta_sd)
   
   
-  candidate_log_prob <-  get_log_prob_partition(z, M, candidate_theta,rcpp)+ dbeta(candidate_theta, alpha.theta, beta.theta, log = TRUE)
-  old_log_prob       <-  get_log_prob_partition(z, M, theta,rcpp) + dbeta(theta, alpha.theta, beta.theta, log = TRUE)
+  candidate_log_prob <-  get_log_prob_partition(z, M, candidate_theta,rcpp)+ dbeta(candidate_theta, params$alpha.theta, params$beta.theta, log = TRUE)
+  old_log_prob       <-  get_log_prob_partition(z, M, theta,rcpp) + dbeta(theta, params$alpha.theta, params$beta.theta, log = TRUE)
   
-  log_transition_prob_old_new <- log(dtruncnorm(theta, mean = candidate_theta, sd = metropolis_theta_sd))
-  log_transition_prob_new_old <- log(dtruncnorm(candidate_theta, mean = theta, sd = metropolis_theta_sd))
+  log_transition_prob_old_new <- log(truncnorm::dtruncnorm(theta, mean = candidate_theta, sd = params$metropolis_theta_sd))
+  log_transition_prob_new_old <- log(truncnorm::dtruncnorm(candidate_theta, mean = theta, sd = params$metropolis_theta_sd))
   
   accept_ratio  <- exp(log_transition_prob_old_new - log_transition_prob_new_old + candidate_log_prob - old_log_prob)
 
@@ -87,7 +87,7 @@ get_log_prob_allocations_marginal <- function(z, i, M, theta, D, params, rcpp = 
     return(get_log_prob_allocations_marginal_rcpp(z, i, M, theta, D, params))
   }  
   else{
-    list2env(params,.GlobalEnv)
+    # list2env(params,.GlobalEnv)
     K_mi       <- length(unique(z[-i]))
     log_probs  <- numeric(K_mi+1) 
     n          <- length(z)
@@ -162,33 +162,32 @@ get_log_prob_allocations_marginal <- function(z, i, M, theta, D, params, rcpp = 
 #' @export
 mcmc_sampler <- function(D, params, N.sim, verbose=FALSE, rcpp = TRUE, M.fixed = NULL, theta.fixed = NULL) {
   
-  if(is.null(params$repulsion)){
-    params$repulsion = FALSE
-  }
+  # if(is.null(params$repulsion)){
+  #   params$repulsion = FALSE
+  # }
   
-  list2env(params,.GlobalEnv)
+  # list2env(params,.GlobalEnv)
   n <- nrow(D)
-  
-  samples <- list()
   
   z <- params$z.init
   
   if(is.null(M.fixed)) {
-    M = M.init
+    M = params$M.init
   } else {
     M = M.fixed
   }
   
   if(is.null(theta.fixed)) {
-    theta = theta.init
+    theta = params$theta.init
   } else {
     theta = theta.fixed
   }
   
-  pb = txtProgressBar(min = 0, max = N.sim, initial = 0, style = 0) 
+  samples <- list()
+  cat(sprintf("  VoronoiClust: Pitman-Yor MCMC (%d iterations)\n", N.sim))
+  pb = txtProgressBar(min = 0, max = N.sim, initial = 0, style = 3, width = 50, char = "*")
   start = proc.time()
-  
-  for(i in 2:N.sim) {
+  for(i in 1:N.sim) {
       
     for(j in 1:n){
       log_probs <- get_log_prob_allocations_marginal(z,j,M,theta,D,params,rcpp)
@@ -208,7 +207,8 @@ mcmc_sampler <- function(D, params, N.sim, verbose=FALSE, rcpp = TRUE, M.fixed =
     #get log-likelihood for WAIC
     log_lik <- get_log_prob_D(D, z, params, rcpp)
     
-    samples[[length(samples)+1]] <- list(M = M, theta=theta, z = z, K = length(unique(z)), log_lik = log_lik, time = proc.time()-start)
+    samples[[length(samples)+1]] <- list(M = M, theta=theta, z = z, K = length(unique(z)), log_lik = log_lik,
+                                         time = difftime(proc.time()["elapsed"], start["elapsed"], units = "secs"))
     
     setTxtProgressBar(pb,i)
     if(verbose){
@@ -219,6 +219,10 @@ mcmc_sampler <- function(D, params, N.sim, verbose=FALSE, rcpp = TRUE, M.fixed =
     }
   }  
   close(pb)
+  
+  # Print total elapsed time in seconds
+  elapsed_time <- samples[[length(samples)]]$time
+  cat(sprintf("  Elapsed Time: %g s\n", elapsed_time))
   
   return(samples)
 }
