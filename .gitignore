@@ -10,3 +10,7 @@
 *.Rbuildignore
 *.Rhistory
 .positai
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
