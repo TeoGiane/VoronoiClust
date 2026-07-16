@@ -13,7 +13,6 @@ MCMCOutput VoronoiSampler::run() {
     }
     // Pre-allocate output structures
     MCMCOutput out;
-    //out.cluster_allocs.set_size(n_data, n_retained);
     out.cluster_allocs.set_size(n_retained, n_data);
     out.centres.reserve(n_retained);
     out.n_clust.set_size(n_retained);

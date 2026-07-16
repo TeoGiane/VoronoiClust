@@ -37,7 +37,7 @@ struct TessellationState {
 
 // Struct that holds the actual MCMC output
 struct MCMCOutput {
-    arma::umat cluster_allocs;                      // N rows x S columns
+    arma::umat cluster_allocs;                      // S rows x N columns
     std::vector<std::vector<arma::uword>> centres;  // Length S
     arma::uvec n_clust;                             // Length S
     arma::vec lpdf;                                 // Length S
