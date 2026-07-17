@@ -8,3 +8,10 @@ mcmc_tessellation <- function(distance_matrix, likelihood_params, prior_params, 
     .Call(`_HPCVoronoiClust_mcmc_tessellation`, distance_matrix, likelihood_params, prior_params, algo_params)
 }
 
+#' Run Split-Merge MCMC for Pitman-Yor Process Mixture Model
+#'
+#' @export
+mcmc_PY <- function(distance_matrix, likelihood_params, prior_params, algo_params) {
+    .Call(`_HPCVoronoiClust_mcmc_PY`, distance_matrix, likelihood_params, prior_params, algo_params)
+}
+

@@ -11,6 +11,7 @@
 #include "factory.h"
 #include "rcpp_unpackers.h"
 #include "voronoi_sampler.h"
+#include "py_sampler.h"
 
 
 //' Run Reversible Jump MCMC for Spatial Voronoi Tessellation
@@ -38,6 +39,29 @@ Rcpp::List mcmc_tessellation(const arma::mat& distance_matrix, Rcpp::List likeli
         Rcpp::Named("cluster_allocs") = out.cluster_allocs + 1,
         Rcpp::Named("centres") = r_centres,
         Rcpp::Named("n_clust") = out.n_clust,
+        Rcpp::Named("lpdf") = out.lpdf
+    );
+};
+
+//' Run Split-Merge MCMC for Pitman-Yor Process Mixture Model
+//'
+//' @export
+// [[Rcpp::export]]
+Rcpp::List mcmc_PY(const arma::mat& distance_matrix, Rcpp::List likelihood_params, Rcpp::List prior_params, Rcpp::List algo_params) {                  
+    // Instantiate the likelihood and prior objects using the factory functions
+    auto likelihood_ptr = build_likelihood(likelihood_params);
+    auto prior_ptr = build_mixture_prior(prior_params);
+    // Specify algorithm parameters
+    auto algo_cfg = Rcpp::as<MixtureAlgorithmParams>(algo_params);
+    // Construct PYSplitMergeSampler object and run the MCMC
+    PYSplitMergeSampler sampler(distance_matrix, likelihood_ptr, prior_ptr, algo_cfg);
+    MixtureMCMCOutput out = sampler.run();   
+    // Return everything as a structured R List
+    return Rcpp::List::create(
+        Rcpp::Named("cluster_allocs") = out.cluster_allocs + 1,
+        Rcpp::Named("n_clust") = out.n_clust,
+        Rcpp::Named("discount") = out.discount,
+        Rcpp::Named("concentration") = out.concentration,
         Rcpp::Named("lpdf") = out.lpdf
     );
 };

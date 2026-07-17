@@ -25,9 +25,24 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// mcmc_PY
+Rcpp::List mcmc_PY(const arma::mat& distance_matrix, Rcpp::List likelihood_params, Rcpp::List prior_params, Rcpp::List algo_params);
+RcppExport SEXP _HPCVoronoiClust_mcmc_PY(SEXP distance_matrixSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type distance_matrix(distance_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type likelihood_params(likelihood_paramsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type prior_params(prior_paramsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type algo_params(algo_paramsSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmc_PY(distance_matrix, likelihood_params, prior_params, algo_params));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_HPCVoronoiClust_mcmc_tessellation", (DL_FUNC) &_HPCVoronoiClust_mcmc_tessellation, 4},
+    {"_HPCVoronoiClust_mcmc_PY", (DL_FUNC) &_HPCVoronoiClust_mcmc_PY, 4},
     {NULL, NULL, 0}
 };
 

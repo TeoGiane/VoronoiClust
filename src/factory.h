@@ -18,3 +18,4 @@ std::shared_ptr<AbstractLikelihood> build_likelihood(const Rcpp::List & params);
 
 // Priors factory
 std::shared_ptr<AbstractPrior> build_prior(const Rcpp::List & params);
+std::shared_ptr<AbstractMixturePrior> build_mixture_prior(const Rcpp::List & params);

@@ -6,7 +6,8 @@
 // Local includes
 #include "likelihoods.h"
 #include "priors.h"
-#include "voronoi_sampler_types.h"
+#include "sampler_types.h"
+#include "py_sampler.h"
 
 
 namespace Rcpp {
@@ -47,17 +48,52 @@ namespace Rcpp {
     };
 
     template <>
+    inline PYFixedParams as(SEXP x) {
+        Rcpp::List lst(x);
+        return PYFixedParams {
+            Rcpp::as<double>(lst["discount"]),
+            Rcpp::as<double>(lst["concentration"])
+        };
+    };
+
+    template <>
+    inline PYHierarchicalParams as(SEXP x) {
+        Rcpp::List lst(x);
+        return PYHierarchicalParams {
+            Rcpp::as<double>(lst["discount_alpha"]),
+            Rcpp::as<double>(lst["discount_beta"]),
+            Rcpp::as<double>(lst["concentration_shape"]),
+            Rcpp::as<double>(lst["concentration_rate"])
+        };
+    };
+
+    template <>
     inline AlgorithmParams as(SEXP x) {
         Rcpp::List lst(x);
         return AlgorithmParams {
-            extract_default<int>(lst, "iterations", 10000),
-            extract_default<int>(lst, "burnin", 1000),
-            extract_default<int>(lst, "thinning", 1),
-            extract_default<double>(lst, "tempering", 0.0),
+            Rcpp::as<size_t>(lst["iterations"]),
+            Rcpp::as<size_t>(lst["burnin"]),
+            Rcpp::as<size_t>(lst["thinning"]),
             extract_default<int>(lst, "init_n_clust", 5),
+            extract_default<double>(lst, "tempering", 0.0),
             extract_default<int>(lst, "random_seed", 20260714),
             extract_default<bool>(lst, "debug", false)
         };
     };
 
+    template<>
+    inline MixtureAlgorithmParams as(SEXP x) {
+        Rcpp::List lst(x);
+        return MixtureAlgorithmParams {
+            Rcpp::as<size_t>(lst["iterations"]),
+            Rcpp::as<size_t>(lst["burnin"]),
+            Rcpp::as<size_t>(lst["thinning"]),
+            extract_default<int>(lst, "init_n_clust", 5),
+            extract_default<int>(lst, "n_sweeps", 1),
+            extract_default<double>(lst, "target_acc_rate", 0.44),
+            extract_default<double>(lst, "adapt_decay", 0.6),
+            extract_default<int>(lst, "random_seed", 20260714),
+            extract_default<bool>(lst, "debug", false)
+        };
+    };
 } // namespace Rcpp
