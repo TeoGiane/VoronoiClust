@@ -25,7 +25,7 @@ MCMCOutput VoronoiSampler::run() {
     Progress prog_bar(algo_params.iterations, !algo_params.debug);
     int save_idx = 0;
     // Main MCMC loop
-    for (int i = 0; i < algo_params.iterations; ++i) {
+    for (size_t i = 0; i < algo_params.iterations; ++i) {
         // Check for user interrupt
         if (Progress::check_abort()) {
             Rcpp::Rcout << "\nSampling interrupted by user. Returning available samples..." << "\n";

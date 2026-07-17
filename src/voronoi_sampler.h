@@ -12,7 +12,7 @@
 // Local includes
 #include "likelihoods.h"
 #include "priors.h"
-#include "voronoi_sampler_types.h"
+#include "sampler_types.h"
 
 
 class VoronoiSampler {
