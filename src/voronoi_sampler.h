@@ -38,8 +38,10 @@ class VoronoiSampler {
     ~VoronoiSampler() = default;
     // Main MCMC loop
     MCMCOutput run();
-    // Public proposal generator (for MultiView version)
+    // Public proposal generator (useful for MultiView version)
     TessellationProposal generate_proposal(size_t curr_iter);
+    // Force apply a state update (useful for MultiView version)
+    void apply_accepted_proposal(const TessellationProposal& prop);
     // Getters for results
     TessellationState get_current_state() const { return curr_state; }
 

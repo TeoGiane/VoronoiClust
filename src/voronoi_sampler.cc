@@ -412,7 +412,7 @@ void VoronoiSampler::step(size_t curr_iter) {
     // }
 };
 
-// Public proposal generator (for MultiView version)
+// Public proposal generator (useful for MultiView version)
 TessellationProposal VoronoiSampler::generate_proposal(size_t curr_iter) {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "generate_proposal()" << std::endl; }
@@ -428,5 +428,19 @@ TessellationProposal VoronoiSampler::generate_proposal(size_t curr_iter) {
         }
     } else {
         return generate_move_proposal();
+    }
+};
+
+// Force apply a state update (useful for MultiView version)
+void VoronoiSampler::apply_accepted_proposal(const TessellationProposal& prop) {
+    curr_state.n_clust = prop.prop_n_clust;
+    curr_state.cluster_allocs = std::move(prop.prop_cluster_allocs);
+    curr_state.cluster_centres = std::move(prop.prop_centres);
+    curr_state.lpdf = prop.prop_lpdf;
+    if (prop.centre_to_add != -1){
+        curr_state.is_centre(prop.centre_to_add) = 1;
+    }
+    if (prop.centre_to_remove != -1) {
+        curr_state.is_centre(prop.centre_to_remove) = 0;
     }
 };
