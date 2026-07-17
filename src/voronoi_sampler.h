@@ -38,6 +38,8 @@ class VoronoiSampler {
     ~VoronoiSampler() = default;
     // Main MCMC loop
     MCMCOutput run();
+    // Public proposal generator (for MultiView version)
+    TessellationProposal generate_proposal(size_t curr_iter);
     // Getters for results
     TessellationState get_current_state() const { return curr_state; }
 
@@ -46,14 +48,17 @@ class VoronoiSampler {
     // Utilities (maybe compute_tessellation as an external function?)
     arma::uvec compute_tessellation(const std::vector<arma::uword> & centres) const;
     arma::vec apply_tempering(const arma::vec& log_probs, double tempering, const arma::uvec& valid_idx) const;
-    // Proposal Generators
+    // Probability Generators
     arma::vec compute_birth_probs() const;
     arma::vec compute_death_probs() const;
     arma::vec compute_move_probs(int old_center_idx) const;
+    // Proposal generators
+    TessellationProposal generate_birth_proposal();
+    TessellationProposal generate_death_proposal();
+    TessellationProposal generate_move_proposal();
+    // Proposal tester
+    void test_proposal(const TessellationProposal & prop_state);
     // MCMC Steps
     void init();
-    void birth_step();
-    void death_step();
-    void move_step();
     void step(size_t curr_iter); 
 };

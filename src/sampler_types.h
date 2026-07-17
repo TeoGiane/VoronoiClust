@@ -15,6 +15,18 @@ struct AlgorithmParams {
     bool debug = false;
 };
 
+// Struct representing the proposal of a tessellation MCMC sampler
+struct TessellationProposal {
+    int prop_n_clust;
+    arma::uvec prop_cluster_allocs;
+    std::vector<arma::uword> prop_centres;
+    double prop_lpdf;
+    double prob_new_old;
+    double prob_old_new;
+    int centre_to_add = -1;
+    int centre_to_remove = -1;
+};
+
 // Struct representing the MCMC state at each iteration
 struct TessellationState {
     int n_clust;

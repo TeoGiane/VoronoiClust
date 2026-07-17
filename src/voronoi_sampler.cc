@@ -128,12 +128,12 @@ arma::vec VoronoiSampler::compute_birth_probs() const {
         #pragma omp parallel for
         for (size_t i = 0; i < indices_to_flip.n_elem; ++i) {
             int k = indices_to_flip[i];
-            std::vector<arma::uword> cand_centers = curr_state.cluster_centres;
-            auto it = std::lower_bound(cand_centers.begin(), cand_centers.end(), k);
-            cand_centers.insert(it, k);
-            arma::uvec cand_allocs = compute_tessellation(cand_centers);
+            std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
+            auto it = std::lower_bound(cand_centres.begin(), cand_centres.end(), k);
+            cand_centres.insert(it, k);
+            arma::uvec cand_allocs = compute_tessellation(cand_centres);
             double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs);
-            log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centers.size());
+            log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centres.size());
         }
         return apply_tempering(log_probs, algo_params.tempering, indices_to_flip);
     }
@@ -148,7 +148,7 @@ arma::vec VoronoiSampler::compute_death_probs() const {
     arma::vec probs = arma::zeros<arma::vec>(n_data);
     // Compute probabilities
     if (algo_params.tempering == 0.0) {
-        // No tempering, uniform probabilities for all active centers
+        // No tempering, uniform probabilities for all active centres
         if (n_clust > 0) {
             probs.elem(arma::find(curr_state.is_centre == 1)).fill(1.0 / n_clust);
         }
@@ -160,22 +160,22 @@ arma::vec VoronoiSampler::compute_death_probs() const {
         #pragma omp parallel for
         for (size_t i = 0; i < indices_to_flip.n_elem; ++i) {
             int k = indices_to_flip[i];
-            // Build candidate by removing the target center
-            std::vector<arma::uword> cand_centers = curr_state.cluster_centres;
-            cand_centers.erase(
-                std::remove(cand_centers.begin(), cand_centers.end(), k), 
-                cand_centers.end()
+            // Build candidate by removing the target centre
+            std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
+            cand_centres.erase(
+                std::remove(cand_centres.begin(), cand_centres.end(), k), 
+                cand_centres.end()
             );
             // Evaluate
-            arma::uvec cand_allocs = compute_tessellation(cand_centers);
+            arma::uvec cand_allocs = compute_tessellation(cand_centres);
             double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs);
-            log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centers.size());
+            log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centres.size());
         }
         return apply_tempering(log_probs, algo_params.tempering, indices_to_flip);
     }
 };
 
-arma::vec VoronoiSampler::compute_move_probs(int old_center_idx) const {
+arma::vec VoronoiSampler::compute_move_probs(int old_centre_idx) const {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "compute_move_probs()" << std::endl; }
     // Get num clusters
@@ -196,14 +196,14 @@ arma::vec VoronoiSampler::compute_move_probs(int old_center_idx) const {
         #pragma omp parallel for
         for (size_t i = 0; i < indices_to_flip.n_elem; ++i) {
             int k = indices_to_flip[i];
-            // Build candidate by replacing the old center and re-sorting
-            std::vector<arma::uword> cand_centers = curr_state.cluster_centres;
-            std::replace(cand_centers.begin(), cand_centers.end(), old_center_idx, k);
-            std::sort(cand_centers.begin(), cand_centers.end());
+            // Build candidate by replacing the old centre and re-sorting
+            std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
+            std::replace(cand_centres.begin(), cand_centres.end(), old_centre_idx, k);
+            std::sort(cand_centres.begin(), cand_centres.end());
             // Evaluate
-            arma::uvec cand_allocs = compute_tessellation(cand_centers);
+            arma::uvec cand_allocs = compute_tessellation(cand_centres);
             double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs);
-            log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centers.size());
+            log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centres.size());
         }
         return apply_tempering(log_probs, algo_params.tempering, indices_to_flip);
     }
@@ -216,26 +216,26 @@ void VoronoiSampler::init() {
     n_data = distance_matrix.n_rows;
     // Set seed for reproducibility
     rng.seed(algo_params.random_seed);
-    // Check: cannot have more centers than data points
+    // Check: cannot have more centres than data points
     unsigned int k = algo_params.init_n_clust;
     if (k > n_data) {
         k = n_data;
     }
     // Sample initial centres
     std::uniform_int_distribution<arma::uword> ui_dist(0, n_data > 0 ? n_data - 1 : 0);
-    std::vector<arma::uword> initial_centers;
-    initial_centers.reserve(k);
-    while(initial_centers.size() < k) {
+    std::vector<arma::uword> initial_centres;
+    initial_centres.reserve(k);
+    while(initial_centres.size() < k) {
         arma::uword cand = ui_dist(rng);
-        // Only add if we haven't picked this center already
-        if (std::find(initial_centers.begin(), initial_centers.end(), cand) == initial_centers.end()) {
-            initial_centers.push_back(cand);
+        // Only add if we haven't picked this centre already
+        if (std::find(initial_centres.begin(), initial_centres.end(), cand) == initial_centres.end()) {
+            initial_centres.push_back(cand);
         }
     }
     // Initialize state vectors
     curr_state.n_clust = k;
-    curr_state.cluster_centres = initial_centers;
-    // Sort centers to guarantee deterministic ordering
+    curr_state.cluster_centres = initial_centres;
+    // Sort centres to guarantee deterministic ordering
     std::sort(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end());
     curr_state.is_centre = arma::zeros<arma::uvec>(n_data);
     for (arma::uword c : curr_state.cluster_centres) {
@@ -249,148 +249,184 @@ void VoronoiSampler::init() {
     return;
 };
 
-void VoronoiSampler::birth_step() {
+TessellationProposal VoronoiSampler::generate_birth_proposal() {
     // Debug log
-    if (algo_params.debug) { Rcpp::Rcout << "birth_step()" << std::endl;}
-    // Choose a new center to add based on the birth probabilities
+    if (algo_params.debug) { Rcpp::Rcout << "generate_birth_proposal()" << std::endl; }
+    // Prepare buffer
+    TessellationProposal res;
+    // Choose a new centre to add based on the birth probabilities
     arma::vec fwd_probs = compute_birth_probs();
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "Birth probabilities: " << fwd_probs.t() << std::endl; }
     std::discrete_distribution<int> birth_dist(fwd_probs.begin(), fwd_probs.end());
-    int new_center_idx = birth_dist(rng);
-    // Generate proposal (mutate current state in place)
+    int new_centre_idx = birth_dist(rng);
+    res.prob_new_old = fwd_probs(new_centre_idx);
+    // Temporary mutate current state
     curr_state.n_clust += 1;
-    curr_state.is_centre(new_center_idx) = 1;
-    auto it = std::lower_bound(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), new_center_idx);
-    curr_state.cluster_centres.insert(it, new_center_idx);
-    // Compute the new tessellation and log-likelihood for the proposed state
-    arma::uvec prop_allocs = compute_tessellation(curr_state.cluster_centres);
-    double prop_lpdf = likelihood->eval_lpdf(distance_matrix, prop_allocs);
+    curr_state.is_centre(new_centre_idx) = 1;
+    auto it = std::lower_bound(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), new_centre_idx);
+    curr_state.cluster_centres.insert(it, new_centre_idx);
+    // Compute proposed tessellation and likelihood
+    res.prop_n_clust = curr_state.n_clust;
+    res.prop_centres = curr_state.cluster_centres;
+    res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
+    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs);
     // Compute reverse probabilities
     arma::vec rev_probs = compute_death_probs();
-    double prob_new_old = fwd_probs(new_center_idx);
-    double prob_old_new = rev_probs(new_center_idx);
-    // Compute acceptance ratio
-    double log_arate = prop_lpdf - curr_state.lpdf + 
-        prior->eval_lpdf(curr_state.n_clust) - prior->eval_lpdf(curr_state.n_clust - 1) + 
-        std::log(prob_old_new) - std::log(prob_new_old);
-    // Accept or roll-back
-    if(std::log(std::uniform_real_distribution<double>(0.0, 1.0)(rng)) < log_arate) {
-        if (algo_params.debug) { Rcpp::Rcout << "Birth accepted" << std::endl;}
-        curr_state.cluster_allocs = std::move(prop_allocs);
-        curr_state.lpdf = prop_lpdf;
-    } else {
-        if (algo_params.debug) { Rcpp::Rcout << "Birth rejected" << std::endl;}
-        curr_state.n_clust -= 1;
-        curr_state.is_centre(new_center_idx) = 0;
-        curr_state.cluster_centres.erase(std::remove(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), new_center_idx), curr_state.cluster_centres.end());
-    }
-    // Debug log
-    if(algo_params.debug) { curr_state.print(); }
-    return;
+    res.prob_old_new = rev_probs(new_centre_idx);
+    // Set forward delta for O(1) acceptance update
+    res.centre_to_add = new_centre_idx;
+    res.centre_to_remove = -1;
+    // Roll-back internal state to original
+    curr_state.n_clust -= 1;
+    curr_state.is_centre(new_centre_idx) = 0;
+    curr_state.cluster_centres.erase(std::remove(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), new_centre_idx), curr_state.cluster_centres.end());
+    // Return proposal
+    return res;
 };
 
-void VoronoiSampler::death_step() {
+TessellationProposal VoronoiSampler::generate_death_proposal() {
     // Debug log
-    if (algo_params.debug) { Rcpp::Rcout << "death_step()" << std::endl; }
-    // Choose a center to remove based on the death probabilities
+    if (algo_params.debug) { Rcpp::Rcout << "generate_death_proposal()" << std::endl; }
+    // Prepare buffer
+    TessellationProposal res;
+    // Choose a centre to remove based on the death probabilities
     arma::vec fwd_probs = compute_death_probs();
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "Death probabilities: " << fwd_probs.t() << std::endl; }
     std::discrete_distribution<int> death_dist(fwd_probs.begin(), fwd_probs.end());
-    int dead_center_idx = death_dist(rng);
-    // Generate proposal (mutate current state in place)
+    int dead_centre_idx = death_dist(rng);
+    res.prob_new_old = fwd_probs(dead_centre_idx);
+    // Temporary mutate current state
     curr_state.n_clust -= 1;
-    curr_state.is_centre(dead_center_idx) = 0;
-    curr_state.cluster_centres.erase(std::remove(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), dead_center_idx), curr_state.cluster_centres.end());
-    // Compute the new tessellation and log-likelihood for the proposed state
-    arma::uvec prop_allocs = compute_tessellation(curr_state.cluster_centres);
-    double prop_lpdf = likelihood->eval_lpdf(distance_matrix, prop_allocs);
-    // Compute reverse probabilities (the reverse of a death is a birth)
+    curr_state.is_centre(dead_centre_idx) = 0;
+    curr_state.cluster_centres.erase(std::remove(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), dead_centre_idx), curr_state.cluster_centres.end());
+    // Compute proposed tessellation and likelihood
+    res.prop_n_clust = curr_state.n_clust;
+    res.prop_centres = curr_state.cluster_centres;
+    res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
+    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs);
+    // Compute reverse probabilities
     arma::vec rev_probs = compute_birth_probs();
-    double prob_new_old = fwd_probs(dead_center_idx);
-    double prob_old_new = rev_probs(dead_center_idx);
-    // Compute acceptance ratio (note the prior is for n_clust + 1)
-    double log_arate = prop_lpdf - curr_state.lpdf + 
-        prior->eval_lpdf(curr_state.n_clust) - prior->eval_lpdf(curr_state.n_clust + 1) + 
-        std::log(prob_old_new) - std::log(prob_new_old);
-    // Accept or roll-back
-    if(std::log(std::uniform_real_distribution<double>(0.0, 1.0)(rng)) < log_arate) {
-        if (algo_params.debug) { Rcpp::Rcout << "Death accepted" << std::endl;}
-        curr_state.cluster_allocs = std::move(prop_allocs);
-        curr_state.lpdf = prop_lpdf;
-    } else {
-        // Roll-back: Re-insert the center maintaining sorted order
-        if (algo_params.debug) { Rcpp::Rcout << "Death rejected" << std::endl;}
-        curr_state.n_clust += 1;
-        curr_state.is_centre(dead_center_idx) = 1;
-        auto it = std::lower_bound(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), dead_center_idx);
-        curr_state.cluster_centres.insert(it, dead_center_idx);
-    }
-    // Debug log
-    if(algo_params.debug) { curr_state.print(); }
-    return;
+    double prob_old_new = rev_probs(dead_centre_idx);
+    // Set forward delta for O(1) acceptance update
+    res.centre_to_add = -1;
+    res.centre_to_remove = dead_centre_idx;
+    // Roll-back internal state to original
+    curr_state.n_clust += 1;
+    curr_state.is_centre(dead_centre_idx) = 1;
+    auto it = std::lower_bound(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), dead_centre_idx);
+    curr_state.cluster_centres.insert(it, dead_centre_idx);
+    // Return proposal
+    return res;
 };
 
-void VoronoiSampler::move_step() {
+TessellationProposal VoronoiSampler::generate_move_proposal() {
     // Debug log
-    if (algo_params.debug) { Rcpp::Rcout << "move_step()" << std::endl; }
-    // Choose a current center to move (uniformly from existing centers)
-    std::uniform_int_distribution<int> center_dist(0, curr_state.n_clust - 1);
-    int old_center_idx = curr_state.cluster_centres[center_dist(rng)];
+    if (algo_params.debug) { Rcpp::Rcout << "generate_move_proposal()" << std::endl; }
+    // Prepare buffer
+    TessellationProposal res;
+    // Choose a current centre to move using the move probabilities
+    std::uniform_int_distribution<int> centre_dist(0, curr_state.n_clust - 1);
+    int old_centre_idx = curr_state.cluster_centres[centre_dist(rng)];
     // Compute probabilities for where it will move
-    arma::vec fwd_probs = compute_move_probs(old_center_idx);
+    arma::vec fwd_probs = compute_move_probs(old_centre_idx);
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "Move probabilities: " << fwd_probs.t() << std::endl;}
     std::discrete_distribution<int> move_dist(fwd_probs.begin(), fwd_probs.end());
-    int new_center_idx = move_dist(rng);
-    // Generate proposal (mutate current state in place)
-    curr_state.is_centre(old_center_idx) = 0;
-    curr_state.is_centre(new_center_idx) = 1;
-    std::replace(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), old_center_idx, new_center_idx);
+    int new_centre_idx = move_dist(rng);
+    res.prob_new_old = fwd_probs(new_centre_idx);
+    // Temporary mutate current state
+    curr_state.is_centre(old_centre_idx) = 0;
+    curr_state.is_centre(new_centre_idx) = 1;
+    std::replace(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), old_centre_idx, new_centre_idx);
     std::sort(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end());
-    // Compute the new tessellation and log-likelihood for the proposed state
-    arma::uvec prop_allocs = compute_tessellation(curr_state.cluster_centres);
-    double prop_lpdf = likelihood->eval_lpdf(distance_matrix, prop_allocs);
-    // Compute reverse probabilities (moving the new center BACK to the old center)
-    arma::vec rev_probs = compute_move_probs(new_center_idx);
-    double prob_new_old = fwd_probs(new_center_idx);
-    double prob_old_new = rev_probs(old_center_idx);
-    // Compute acceptance ratio (Prior on K cancels out)
-    double log_arate = prop_lpdf - curr_state.lpdf + 
-        std::log(prob_old_new) - std::log(prob_new_old);
-    // Accept or roll-back
-    if(std::log(std::uniform_real_distribution<double>(0.0, 1.0)(rng)) < log_arate) {
-        if (algo_params.debug) { Rcpp::Rcout << "Move accepted" << std::endl;}
-        curr_state.cluster_allocs = std::move(prop_allocs);
-        curr_state.lpdf = prop_lpdf;
-    } else {
-        // Roll-back: Swap them back and re-sort
-        if (algo_params.debug) { Rcpp::Rcout << "Move rejected" << std::endl;}
-        curr_state.is_centre(new_center_idx) = 0;
-        curr_state.is_centre(old_center_idx) = 1;
-        std::replace(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), new_center_idx, old_center_idx);
-        std::sort(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end());
-    }
+    // Compute proposed tessellation and likelihood
+    res.prop_n_clust = curr_state.n_clust;
+    res.prop_centres = curr_state.cluster_centres;
+    res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
+    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs);
+    // Compute reverse probabilities
+    arma::vec rev_probs = compute_move_probs(new_centre_idx);
+    res.prob_old_new = rev_probs(old_centre_idx);
+    // Set forward delta for O(1) acceptance update
+    res.centre_to_add = new_centre_idx;
+    res.centre_to_remove = old_centre_idx;
+    // Roll-back internal state to original
+    curr_state.is_centre(new_centre_idx) = 0;
+    curr_state.is_centre(old_centre_idx) = 1;
+    std::replace(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end(), new_centre_idx, old_centre_idx);
+    std::sort(curr_state.cluster_centres.begin(), curr_state.cluster_centres.end());
+    // Return proposal
+    return res;
+};
+
+void VoronoiSampler::test_proposal(const TessellationProposal & prop_state) {
     // Debug log
-    if(algo_params.debug) { curr_state.print(); }
-    return;
+    if (algo_params.debug) { Rcpp::Rcout << "test_proposal()" << std::endl; }
+    // Compute acceptance ratio
+    double log_arate = prop_state.prop_lpdf - curr_state.lpdf +
+        prior->eval_lpdf(prop_state.prop_n_clust) - prior->eval_lpdf(curr_state.n_clust) +
+        std::log(prop_state.prob_old_new) - std::log(prop_state.prob_new_old);
+    // Test for acceptance
+    if(std::log(std::uniform_real_distribution<double>(0.0, 1.0)(rng)) < log_arate) {
+        // Update state components
+        curr_state.n_clust = prop_state.prop_n_clust;
+        curr_state.cluster_allocs = std::move(prop_state.prop_cluster_allocs);
+        curr_state.cluster_centres = std::move(prop_state.prop_centres);
+        curr_state.lpdf = prop_state.prop_lpdf;
+        // O(1) update of is_centre vector
+        if(prop_state.centre_to_add != -1){
+            curr_state.is_centre(prop_state.centre_to_add) = 1;
+        }
+        if(prop_state.centre_to_remove != -1){
+            curr_state.is_centre(prop_state.centre_to_remove) = 0;
+        }
+        // Debug log
+        if(algo_params.debug) { Rcpp::Rcout << "Birth accepted" << std::endl;}
+    } else {
+        // Debug log
+        if(algo_params.debug) { Rcpp::Rcout << "Brith rejected" << std::endl;}
+    }
 };
 
 void VoronoiSampler::step(size_t curr_iter) {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "step()" << std::endl; }
+    // Generate proposal
+    TessellationProposal prop = generate_proposal(curr_iter);
+    // Test proposal
+    test_proposal(prop);
+    // // Choose the move to perform at this iteration
+    // std::uniform_real_distribution<double> uniform_dist(0.0, 1.0);
+    // size_t n_clust = curr_state.n_clust;
+    // if (curr_iter % 2 == 0 || n_clust == 0 || n_clust == n_data) {
+    //     bool do_birth = (uniform_dist(rng) < 0.5 || n_clust < 2) && (n_clust != n_data);
+    //     if (do_birth) {
+    //         this->birth_step();
+    //     } else {
+    //         this->death_step();
+    //     }
+    // } else {
+    //     this->move_step();
+    // }
+};
+
+// Public proposal generator (for MultiView version)
+TessellationProposal VoronoiSampler::generate_proposal(size_t curr_iter) {
+    // Debug log
+    if (algo_params.debug) { Rcpp::Rcout << "generate_proposal()" << std::endl; }
     // Choose the move to perform at this iteration
     std::uniform_real_distribution<double> uniform_dist(0.0, 1.0);
     size_t n_clust = curr_state.n_clust;
     if (curr_iter % 2 == 0 || n_clust == 0 || n_clust == n_data) {
         bool do_birth = (uniform_dist(rng) < 0.5 || n_clust < 2) && (n_clust != n_data);
         if (do_birth) {
-            this->birth_step();
+            return generate_birth_proposal();
         } else {
-            this->death_step();
+            return generate_death_proposal();
         }
     } else {
-        this->move_step();
+        return generate_move_proposal();
     }
 };
