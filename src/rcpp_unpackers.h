@@ -96,4 +96,14 @@ namespace Rcpp {
             extract_default<bool>(lst, "debug", false)
         };
     };
+
+    template<>
+    inline CouplingParams as(SEXP x) {
+        Rcpp::List lst(x);
+        return CouplingParams {
+            Rcpp::as<double>(lst["strength_alpha"]),
+            Rcpp::as<double>(lst["strength_beta"])
+        };
+    };
+
 } // namespace Rcpp
