@@ -2,6 +2,7 @@
 // Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #include <RcppArmadillo.h>
+#include <RcppGSL.h>
 #include <Rcpp.h>
 
 using namespace Rcpp;
@@ -39,10 +40,25 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// mcmc_multiview_tessellation
+Rcpp::List mcmc_multiview_tessellation(const Rcpp::List& distance_matrices, const Rcpp::List& likelihood_params, const Rcpp::List& prior_params, const Rcpp::List& algo_params);
+RcppExport SEXP _HPCVoronoiClust_mcmc_multiview_tessellation(SEXP distance_matricesSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type distance_matrices(distance_matricesSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type likelihood_params(likelihood_paramsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type prior_params(prior_paramsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type algo_params(algo_paramsSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmc_multiview_tessellation(distance_matrices, likelihood_params, prior_params, algo_params));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_HPCVoronoiClust_mcmc_tessellation", (DL_FUNC) &_HPCVoronoiClust_mcmc_tessellation, 4},
     {"_HPCVoronoiClust_mcmc_PY", (DL_FUNC) &_HPCVoronoiClust_mcmc_PY, 4},
+    {"_HPCVoronoiClust_mcmc_multiview_tessellation", (DL_FUNC) &_HPCVoronoiClust_mcmc_multiview_tessellation, 4},
     {NULL, NULL, 0}
 };
 

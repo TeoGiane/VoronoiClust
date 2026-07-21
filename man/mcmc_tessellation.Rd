@@ -2,7 +2,7 @@
 % Please edit documentation in R/RcppExports.R
 \name{mcmc_tessellation}
 \alias{mcmc_tessellation}
-\title{Run Reversible Jump MCMC for Spatial Voronoi Tessellation}
+\title{Run Reversible Jump MCMC for Voronoi Tessellation}
 \usage{
 mcmc_tessellation(
   distance_matrix,
@@ -12,5 +12,5 @@ mcmc_tessellation(
 )
 }
 \description{
-Run Reversible Jump MCMC for Spatial Voronoi Tessellation
+Run Reversible Jump MCMC for Voronoi Tessellation
 }

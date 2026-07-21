@@ -37,3 +37,33 @@ double beta_lpdf(double x, double alpha, double beta) {
 double gamma_lpdf(double x, double shape, double rate) {
     return R::dgamma(x, shape, 1.0 / rate, 1);
 };
+
+Rcpp::List wrap_multiview_output(const MultiViewMCMCOutput& out) {
+    int n_views = out.views.size();
+    Rcpp::List views_list(n_views);
+    
+    for (int v = 0; v < n_views; ++v) {
+        const MCMCOutput& current_view = out.views[v];
+        
+        Rcpp::List r_centres(current_view.centres.size());
+        for (size_t i = 0; i < current_view.centres.size(); ++i) {
+            std::vector<arma::uword> cpp_centers = current_view.centres[i];
+            for (auto& c : cpp_centers) { c += 1; } // 1-based indexing for R
+            r_centres[i] = cpp_centers;
+        }
+        
+        Rcpp::List single_view = Rcpp::List::create(
+            Rcpp::Named("cluster_allocs") = current_view.cluster_allocs + 1, 
+            Rcpp::Named("centres")        = r_centres,
+            Rcpp::Named("n_clust")        = current_view.n_clust,
+            Rcpp::Named("lpdf")           = current_view.lpdf
+        );
+        
+        views_list[v] = single_view;
+    }
+    
+    return Rcpp::List::create(
+        Rcpp::Named("views")      = views_list,
+        Rcpp::Named("joint_lpdf") = out.joint_lpdf
+    );
+};
