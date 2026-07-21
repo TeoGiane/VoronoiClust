@@ -34,8 +34,13 @@ class VoronoiSampler {
   // Public class methods
   public:
     // Constructor & destructor
-    VoronoiSampler(const arma::mat & _distance_matrix, std::shared_ptr<AbstractLikelihood> _likelihood_ptr, std::shared_ptr<AbstractPrior> _prior_ptr, const AlgorithmParams & _algo_params);
+    VoronoiSampler(const arma::mat & _distance_matrix,
+                   std::shared_ptr<AbstractLikelihood> _likelihood_ptr,
+                   std::shared_ptr<AbstractPrior> _prior_ptr,
+                   const AlgorithmParams & _algo_params);
     ~VoronoiSampler() = default;
+    // Proper initialization method
+    void init();
     // Main MCMC loop
     MCMCOutput run();
     // Public proposal generator (useful for MultiView version)
@@ -43,7 +48,8 @@ class VoronoiSampler {
     // Force apply a state update (useful for MultiView version)
     void apply_accepted_proposal(const TessellationProposal& prop);
     // Getters for results
-    TessellationState get_current_state() const { return curr_state; }
+    TessellationState get_current_state() const { return curr_state; };
+    std::shared_ptr<AbstractPrior> get_prior() const { return prior; };
 
   // Private class methods
   private:
@@ -60,7 +66,6 @@ class VoronoiSampler {
     TessellationProposal generate_move_proposal();
     // Proposal tester
     void test_proposal(const TessellationProposal & prop_state);
-    // MCMC Steps
-    void init();
+    // MCMC Step
     void step(size_t curr_iter); 
 };

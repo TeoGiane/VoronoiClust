@@ -308,7 +308,7 @@ TessellationProposal VoronoiSampler::generate_death_proposal() {
     res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs);
     // Compute reverse probabilities
     arma::vec rev_probs = compute_birth_probs();
-    double prob_old_new = rev_probs(dead_centre_idx);
+    res.prob_old_new = rev_probs(dead_centre_idx);
     // Set forward delta for O(1) acceptance update
     res.centre_to_add = -1;
     res.centre_to_remove = dead_centre_idx;
