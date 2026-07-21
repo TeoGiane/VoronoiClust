@@ -38,6 +38,27 @@ double gamma_lpdf(double x, double shape, double rate) {
     return R::dgamma(x, shape, 1.0 / rate, 1);
 };
 
+double compute_rand_index(const arma::uvec & clus_allocs_1, const arma::uvec& clus_allocs_2) {
+    // Debug log
+    // Rcpp::Rcout << "compute_rand_index()" << std::endl;
+    // Initialize losses
+    double agree_same = 0.0;
+    double agree_diff = 0.0;
+    // Determine number of elements
+    size_t n_data = clus_allocs_1.n_elem; 
+    double total_pairs = (n_data * (n_data - 1)) / 2.0;
+    for (size_t i = 0; i < n_data; ++i) {
+        for (size_t j = i + 1; j < n_data; ++j) {
+            bool same1 = (clus_allocs_1[i] == clus_allocs_1[j]);
+            bool same2 = (clus_allocs_2[i] == clus_allocs_2[j]);
+            if (same1 && same2) agree_same += 1.0;
+            if (!same1 && !same2) agree_diff += 1.0;
+        }
+    }
+    // Return
+    return (agree_same + agree_diff) / total_pairs;
+};
+
 Rcpp::List wrap_multiview_output(const MultiViewMCMCOutput& out) {
     int n_views = out.views.size();
     Rcpp::List views_list(n_views);
