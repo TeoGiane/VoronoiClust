@@ -19,5 +19,6 @@ Imports:
 LinkingTo: 
     Rcpp,
     RcppArmadillo,
+    RcppGSL,
     RcppProgress
 RoxygenNote: 7.3.3
