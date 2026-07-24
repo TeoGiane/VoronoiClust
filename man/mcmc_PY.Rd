@@ -6,6 +6,29 @@
 \usage{
 mcmc_PY(distance_matrix, likelihood_params, prior_params, algo_params)
 }
+\arguments{
+\item{distance_matrix}{A square numeric matrix of pairwise distances between data points.}
+
+\item{likelihood_params}{A list specifying the likelihood parameters. See \code{\link{likelihood_params}} for details.}
+
+\item{prior_params}{A list specifying the Pitman-Yor process prior parameters. See \code{\link{prior_params}} for details on the `"PY-fixed"` and `"PY-hierarchical"` priors.}
+
+\item{algo_params}{A list of algorithm parameters. See \code{\link{algorithm_params}} for details on the mixture model parameters.}
+}
+\value{
+A list containing the MCMC output:
+  \itemize{
+    \item \code{cluster_allocs}: A matrix of cluster allocations for each retained sample.
+    \item \code{n_clust}: A vector of the number of clusters for each retained sample.
+    \item \code{discount}: A vector of the discount parameter values for each retained sample. For a fixed prior, this will be constant.
+    \item \code{concentration}: A vector of the concentration parameter values for each retained sample. For a fixed prior, this will be constant.
+    \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+  }
+}
 \description{
+This function runs a Split-Merge MCMC sampler for a Pitman-Yor process
+mixture model.
+}
+\details{
 Run Split-Merge MCMC for Pitman-Yor Process Mixture Model
 }

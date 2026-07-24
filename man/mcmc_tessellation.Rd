@@ -11,6 +11,28 @@ mcmc_tessellation(
   algo_params
 )
 }
+\arguments{
+\item{distance_matrix}{A square numeric matrix of pairwise distances between data points.}
+
+\item{likelihood_params}{A list specifying the likelihood parameters. See \code{\link{likelihood_params}} for details.}
+
+\item{prior_params}{A list specifying the prior parameters. See \code{\link{prior_params}} for details on the `"truncated_geometric"` prior.}
+
+\item{algo_params}{A list of algorithm parameters. See \code{\link{algorithm_params}} for details on the tessellation model parameters.}
+}
+\value{
+A list containing the MCMC output:
+  \itemize{
+    \item \code{cluster_allocs}: A matrix of cluster allocations for each retained sample.
+    \item \code{centres}: A list of vectors, where each vector contains the indices of cluster centres for a retained sample.
+    \item \code{n_clust}: A vector of the number of clusters for each retained sample.
+    \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+  }
+}
 \description{
+This function runs a Reversible Jump Markov Chain Monte Carlo (RJMCMC) sampler
+for a Voronoi tessellation-based clustering model.
+}
+\details{
 Run Reversible Jump MCMC for Voronoi Tessellation
 }
