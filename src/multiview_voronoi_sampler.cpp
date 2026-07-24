@@ -24,7 +24,7 @@ MultiViewMCMCOutput MultiViewVoronoiSampler::run() {
         out.views[v].lpdf.set_size(n_retained);
     }
     out.joint_lpdf.set_size(n_retained);
-    // Print inital message (if not in debug mode)
+    // Print initial message (if not in debug mode)
     if (!algo_params.debug) {
         Rcpp::Rcout << "VoronoiClust: Multiview Tessellation MCMC (" << algo_params.iterations << " iterations)" << std::endl;
     }
@@ -49,7 +49,7 @@ MultiViewMCMCOutput MultiViewVoronoiSampler::run() {
         // Store output if past burn-in and respecting thinning
         if (i >= algo_params.burnin && (i - algo_params.burnin) % algo_params.thinning == 0) {
             // Start the joint likelihood with the tracked total_coupling
-            double current_joint_lpdf = total_coupling; 
+            double current_joint_lpdf = -total_coupling; 
             for (int v = 0; v < n_views; ++v) {
                 TessellationState v_state = model_in_view[v]->get_current_state();
                 out.views[v].cluster_allocs.row(save_idx) = v_state.cluster_allocs.t();
@@ -75,11 +75,9 @@ ConditionalCouplingResult MultiViewVoronoiSampler::compute_conditional_coupling(
     ConditionalCouplingResult res;
     res.total_conditional_sum = 0.0;
     res.pairwise_terms.assign(n_views, 0.0);
-    // Compute conditional couplings in the fiven view
+    // Compute conditional couplings in the given view
     for (int u = 0; u < n_views; ++u) {
-        if (u == curr_view) {
-            continue;
-        }
+        if (u == curr_view) continue;
         const arma::uvec& view_u_z = model_in_view[u]->get_current_state().cluster_allocs;
         double ri = compute_rand_index(target_z, view_u_z);
         if (ri < 1e-10) ri = 1e-10; 

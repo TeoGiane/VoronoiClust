@@ -46,7 +46,7 @@ class MultiViewVoronoiSampler {
     // Algorithm parameters
     AlgorithmParams algo_params;
     // Internal MCMC state
-    MultiViewTessellationState curr_state;
+    // MultiViewTessellationState curr_state;
     // Random number generator
     std::mt19937 rng;
   
