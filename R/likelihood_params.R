@@ -14,4 +14,16 @@
 #'   \item `prior_rate_between`: Rate parameter for the Gamma prior on the rate of between-cluster distances.
 #'   \item `repulsion`: A boolean indicating whether to model between-cluster repulsion.
 #' }
+#'
+#' @section Linear Likelihood (`type = "linear"`):
+#' For the linear likelihood, which models distances to and between cluster medoids, the list should contain:
+#' \itemize{
+#'   \item `type`: A string, must be `"linear"`.
+#'   \item `shape_within`: Shape parameter for the Gamma distribution of within-cluster distances (to the medoid).
+#'   \item `prior_shape_within`: Shape parameter for the Gamma prior on the rate of within-cluster distances.
+#'   \item `prior_rate_within`: Rate parameter for the Gamma prior on the rate of within-cluster distances.
+#'   \item `shape_between`: Shape parameter for the Gamma distribution of between-medoid distances.
+#'   \item `rate_between`: Rate parameter for the Gamma distribution of between-medoid distances.
+#'   \item `repulsion`: A boolean indicating whether to model between-cluster repulsion.
+#' }
 NULL
