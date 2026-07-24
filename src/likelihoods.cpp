@@ -1,6 +1,6 @@
 #include "likelihoods.h"
 
-double QuadraticTessellationLikelihood::eval_lpdf(const arma::mat& dist_matrix, const arma::uvec& cluster_allocs) const {
+double QuadraticTessellationLikelihood::eval_lpdf(const arma::mat& dist_matrix, const arma::uvec& cluster_allocs, const std::optional<const std::vector<arma::uword>>& centers) const {
         
     // 1. O(N) ONE-PASS GROUPING
     // Find unique clusters (arma::unique returns a sorted vector)
@@ -141,3 +141,91 @@ double QuadraticTessellationLikelihood::eval_lpdf(const arma::mat& dist_matrix, 
 //     double lpdf = accu(log_Lkt);
 //     return lpdf;
 // };
+
+double LinearTessellationLikelihood::eval_lpdf(const arma::mat& dist_matrix, const arma::uvec& cluster_allocs, const std::optional<const std::vector<arma::uword>>& centers) const {
+    // Rcpp::Rcout << "LinearTessellationLikelihood::eval_lpdf()" << std::endl;
+
+    // Find unique cluster IDs and their count (K)
+    arma::uvec unique_z = arma::unique(cluster_allocs);
+    unsigned int K = unique_z.n_elem;
+    double total_lpdf = 0.0;
+
+    if (K == 0) return 0.0;
+
+    std::vector<arma::uword> medoid_indices;
+    medoid_indices.reserve(K);
+
+    // If centers are provided (from VoronoiSampler), use them as medoids.
+    // Otherwise (from PYSampler), compute medoids on-the-fly.
+    if (centers.has_value()) {
+        medoid_indices = centers.value();
+        if (medoid_indices.size() != K) {
+            Rcpp::stop("LinearTessellationLikelihood: Number of provided centers does not match number of clusters.");
+        }
+    } else {
+        for (unsigned int k_id_val : unique_z) {
+            arma::uvec idx_in_cluster = arma::find(cluster_allocs == k_id_val);
+            if (idx_in_cluster.is_empty()) continue;
+
+            arma::uword medoid_data_idx = idx_in_cluster[0];
+            if (idx_in_cluster.n_elem > 1) {
+                double min_sum_dist = arma::datum::inf;
+                for (arma::uword candidate_medoid_point_idx : idx_in_cluster) {
+                    double current_sum_dist = 0.0;
+                    for (arma::uword other_point_idx : idx_in_cluster) {
+                        if (candidate_medoid_point_idx != other_point_idx) {
+                            current_sum_dist += dist_matrix(candidate_medoid_point_idx, other_point_idx);
+                        }
+                    }
+                    if (current_sum_dist < min_sum_dist) {
+                        min_sum_dist = current_sum_dist;
+                        medoid_data_idx = candidate_medoid_point_idx;
+                    }
+                }
+            }
+            medoid_indices.push_back(medoid_data_idx);
+        }
+    }
+
+    // 1. WITHIN-CLUSTER LIKELIHOOD
+    for (unsigned int k_idx = 0; k_idx < K; ++k_idx) {
+        arma::uvec idx_in_cluster = arma::find(cluster_allocs == unique_z(k_idx));
+        if (idx_in_cluster.n_elem <= 1) continue;
+
+        arma::uword medoid_data_idx = medoid_indices[k_idx];
+        
+        arma::rowvec D_row = dist_matrix.row(medoid_data_idx);
+        arma::uvec other_points_in_cluster = idx_in_cluster.elem(arma::find(idx_in_cluster != medoid_data_idx));
+        arma::vec distances = D_row.elem(other_points_in_cluster);
+        
+        distances = distances.elem(arma::find(distances > 0));
+        unsigned int n_d = distances.n_elem;
+        
+        if (n_d > 0) {
+            total_lpdf += params.prior_shape_within * std::log(params.prior_rate_within) +
+                          (params.shape_within - 1) * arma::sum(arma::log(distances)) +
+                          (-params.prior_shape_within - params.shape_within * n_d) * std::log(params.prior_rate_within + arma::sum(distances)) -
+                          n_d * std::lgamma(params.shape_within) +
+                          std::lgamma(params.prior_shape_within + n_d * params.shape_within) - std::lgamma(params.prior_shape_within);
+        }
+    }
+
+    // 2. BETWEEN-CLUSTER LIKELIHOOD
+    if (params.repulsion && K > 1) {
+        arma::uvec medoid_uvec = arma::conv_to<arma::uvec>::from(medoid_indices);
+        arma::mat D_centers = dist_matrix.submat(medoid_uvec, medoid_uvec);
+        
+        // Get upper triangle elements (pairwise distances between distinct centers)
+        arma::vec distances = D_centers.elem(arma::trimatu_ind(arma::size(D_centers), 1));
+        
+        distances = distances.elem(arma::find(distances > 0)); // Filter out zero distances
+        unsigned int n_d = distances.n_elem;
+        
+        if (n_d > 0) {
+            // Compute log-likelihood for between-cluster distances (product of Gamma densities)
+            total_lpdf += n_d * params.shape_between * std::log(params.rate_between) - n_d * std::lgamma(params.shape_between) - params.rate_between * arma::sum(distances) + (params.shape_between - 1) * arma::sum(arma::log(distances));
+        }
+    }
+    
+    return total_lpdf;
+};

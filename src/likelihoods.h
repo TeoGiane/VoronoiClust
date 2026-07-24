@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 // Rcpp includes
 #include <RcppArmadillo.h>
 
@@ -9,7 +10,7 @@ class AbstractLikelihood {
     // Virtual destructor
     virtual ~AbstractLikelihood() = default;
     // Evaluate the log-likelihood given the data and the cluster allocations
-    virtual double eval_lpdf(const arma::mat& dist_matrix, const arma::uvec& cluster_allocs) const = 0;
+    virtual double eval_lpdf(const arma::mat& dist_matrix, const arma::uvec& cluster_allocs, const std::optional<const std::vector<arma::uword>>& centers = std::nullopt) const = 0;
 };
 
 
@@ -34,9 +35,29 @@ class QuadraticTessellationLikelihood : public AbstractLikelihood {
     QuadraticTessellationLikelihood(const QuadraticLikelihoodParams & _params) : params(_params) {};
     ~QuadraticTessellationLikelihood() = default;
     // Evaluation function (override)
-    double eval_lpdf(const arma::mat & dist_matrix, const arma::uvec & cluster_allocs) const override;
+    double eval_lpdf(const arma::mat & dist_matrix, const arma::uvec & cluster_allocs, const std::optional<const std::vector<arma::uword>>& centers = std::nullopt) const override;
 };
 
+// Derived concrete class: linear tessellation likelihood
+// Struct to hold parameters for the linear tessellation likelihood
+struct LinearLikelihoodParams {
+    // Within-cluster parameters (Gamma-Gamma conjugate)
+    double shape_within, prior_shape_within, prior_rate_within;
+    // Between-cluster parameters (Gamma likelihood)
+    double shape_between, rate_between;
+    // Repulsion flag
+    bool repulsion;
+};
+
+// Class implementation
+class LinearTessellationLikelihood : public AbstractLikelihood {
+  private:
+    LinearLikelihoodParams params;
+  public:
+    LinearTessellationLikelihood(const LinearLikelihoodParams & _params) : params(_params) {};
+    ~LinearTessellationLikelihood() = default;
+    double eval_lpdf(const arma::mat & dist_matrix, const arma::uvec & cluster_allocs, const std::optional<const std::vector<arma::uword>>& centers = std::nullopt) const override;
+};
 
 /* Extra likelihood parameters for multi-view models */
 // Struct to hold multi-view coupling parameters
