@@ -100,26 +100,20 @@ struct MixtureMCMCOutput {
 
 
 /* Sampler types for multi-view tessellation samplers */
-// Struct to hold multi-view coupling parameters
-struct CouplingParams {
-    double strength_alpha;
-    double strength_beta;
-};
-
-// Helper struct to manage computation of conditional couplings between views
-struct ConditionalCouplingResult {
-    double total_conditional_sum;
-    std::vector<double> pairwise_terms;
-};
-
 // Struct to handle multi-view Tessellation State
-struct MultiViewTessellationState {
-    std::vector<TessellationState> view_states;
-    double joint_lpdf;
-};
+// struct MultiViewTessellationState {
+//     std::vector<TessellationState> view_states;
+//     double joint_lpdf;
+// };
 
-// Struct collecting multi-view MCMC output
+// Struct collecting multi-view tessellation MCMC output
 struct MultiViewMCMCOutput {
     std::vector<MCMCOutput> views;  // Length V (One full trace per view)
     arma::vec joint_lpdf;           // Length S (Sum of marginal likelihoods + coupling)
+};
+
+// Struct collecting multi-view mixture MCMC output
+struct MultiViewMixtureMCMCOutput {
+    std::vector<MixtureMCMCOutput> views; // Length V (One full trace per view)
+    arma::vec joint_lpdf;                 // Length S (Sum of marginals + coupling)
 };
