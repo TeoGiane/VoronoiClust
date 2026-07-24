@@ -1,8 +1,8 @@
 #include "py_sampler.h"
 
-PYSplitMergeSampler::PYSplitMergeSampler(const arma::mat & _distance_matrix, std::shared_ptr<AbstractLikelihood> _likelihood_ptr, std::shared_ptr<AbstractMixturePrior> _prior_ptr, const MixtureAlgorithmParams & _algo_params): distance_matrix(_distance_matrix), likelihood(std::move(_likelihood_ptr)), prior(std::move(_prior_ptr)), algo_params(_algo_params) {};
+PYSampler::PYSampler(const arma::mat & _distance_matrix, std::shared_ptr<AbstractLikelihood> _likelihood_ptr, std::shared_ptr<AbstractMixturePrior> _prior_ptr, const MixtureAlgorithmParams & _algo_params): distance_matrix(_distance_matrix), likelihood(std::move(_likelihood_ptr)), prior(std::move(_prior_ptr)), algo_params(_algo_params) {};
 
-MixtureMCMCOutput PYSplitMergeSampler::run() {
+MixtureMCMCOutput PYSampler::run() {
     // Initialize the sampler
     this->init();
     // Deduce retained samples
@@ -61,7 +61,7 @@ MixtureMCMCOutput PYSplitMergeSampler::run() {
     return out;
 };
 
-void PYSplitMergeSampler::init() {
+void PYSampler::init() {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "init()" << std::endl; }
     // Set n_data based on the distance matrix
@@ -93,7 +93,7 @@ void PYSplitMergeSampler::init() {
     return;
 };
 
-void PYSplitMergeSampler::split_step(int obs_i, int obs_j) {
+void PYSampler::split_step(int obs_i, int obs_j, FullCouplingCallback full_coupling_cb) {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "split_step()" << std::endl; }
     // Prepare prop_allocs buffer
@@ -121,9 +121,12 @@ void PYSplitMergeSampler::split_step(int obs_i, int obs_j) {
     prop_allocs = standardize_allocs(prop_allocs);
     // Complete proposal
     int prop_n_clust = arma::unique(prop_allocs).eval().n_elem;
-    double prop_lpdf = likelihood->eval_lpdf(distance_matrix, prop_allocs);   
+    double prop_lpdf = likelihood->eval_lpdf(distance_matrix, prop_allocs);
+    // Evaluate couplings callbacks (only if this class is used in  multi-view extension)
+    double curr_coupling = full_coupling_cb ? full_coupling_cb(curr_state.cluster_allocs) : 0.0;
+    double prop_coupling = full_coupling_cb ? full_coupling_cb(prop_allocs) : 0.0;
     // Compute acceptance ratio (reverse merge is deterministic, so log_q_merge = 0)
-    double log_arate = prop_lpdf - curr_state.lpdf + 
+    double log_arate = (prop_lpdf - prop_coupling) - (curr_state.lpdf - curr_coupling) + 
         prior->eval_lpdf(prop_allocs) - prior->eval_lpdf(curr_state.cluster_allocs) - log_q_split;
     // Test for acceptance
     if(std::log(runif(rng)) < log_arate) {
@@ -139,7 +142,7 @@ void PYSplitMergeSampler::split_step(int obs_i, int obs_j) {
     return;
 };
 
-void PYSplitMergeSampler::merge_step(int obs_i, int obs_j) {
+void PYSampler::merge_step(int obs_i, int obs_j, FullCouplingCallback full_coupling_cb) {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "merge_step()" << std::endl; }
     // Prepare allocation buffer
@@ -153,6 +156,9 @@ void PYSplitMergeSampler::merge_step(int obs_i, int obs_j) {
     arma::uvec standardized_prop = standardize_allocs(prop_allocs);
     int prop_n_clust = arma::unique(standardized_prop).eval().n_elem;
     double prop_lpdf = likelihood->eval_lpdf(distance_matrix, standardized_prop);
+    // Evaluate couplings (only if this class is used in multi-view extension)
+    double curr_coupling = full_coupling_cb ? full_coupling_cb(curr_state.cluster_allocs) : 0.0;
+    double prop_coupling = full_coupling_cb ? full_coupling_cb(standardized_prop) : 0.0;
     // Compute reverse probability (splitting the merged state back into exact curr_state)
     arma::uvec merged_members = arma::find(prop_allocs == clust_i);
     arma::uvec dummy_allocs = prop_allocs;
@@ -173,7 +179,7 @@ void PYSplitMergeSampler::merge_step(int obs_i, int obs_j) {
     // Final sweep: do not sample, but force transition into curr_state and calculate probability
     double log_q_split_rev = restricted_gibbs_sweep(dummy_allocs, merged_members, obs_i, obs_j, clust_i, clust_j, false, curr_state.cluster_allocs);
     // Compute acceptance ratio (forward merge is deterministic, so log_q_merge = 0)
-    double log_arate = prop_lpdf - curr_state.lpdf + 
+    double log_arate = (prop_lpdf - prop_coupling) - (curr_state.lpdf - curr_coupling) + 
         prior->eval_lpdf(standardized_prop) - prior->eval_lpdf(curr_state.cluster_allocs) + log_q_split_rev;
     // Test for acceptance
     if(std::log(runif(rng)) < log_arate) {
@@ -189,7 +195,8 @@ void PYSplitMergeSampler::merge_step(int obs_i, int obs_j) {
     return;
 };
 
-void PYSplitMergeSampler::gibbs_step() {
+void PYSampler::gibbs_step(GibbsCouplingCallback gibbs_coupling_cb,
+                                     GibbsUpdateCallback gibbs_update_cb) {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "gibbs_step()" << std::endl; }
     // Downcast to PYPrior to access conditional cluster updates.
@@ -224,7 +231,9 @@ void PYSplitMergeSampler::gibbs_step() {
             if (n_k_minus_i > 0) {
                 curr_state.cluster_allocs(i) = k; // Mutate state directly
                 double log_cond_prior = py_prior->eval_pred_lpdf_existing(n_k_minus_i);
-                double lp = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs) + log_cond_prior;
+                // Add coupling penalty (if this class is used in multi-view extension)
+                double coupling_penalty = gibbs_coupling_cb ? gibbs_coupling_cb(i, old_clust, k) : 0.0;
+                double lp = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs) - coupling_penalty + log_cond_prior;
                 log_probs.push_back(lp);
                 clust_ids.push_back(k);
             }
@@ -234,7 +243,9 @@ void PYSplitMergeSampler::gibbs_step() {
         while (sizes(new_clust_id) > 0) { new_clust_id++; }
         curr_state.cluster_allocs(i) = new_clust_id;
         double log_cond_prior_new = py_prior->eval_pred_lpdf_new(K_minus_i);
-        double lp_new = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs) + log_cond_prior_new;
+        // Add coupling penalty (if this class is used in multi-view extension)
+        double coupling_penalty_new = gibbs_coupling_cb ? gibbs_coupling_cb(i, old_clust, new_clust_id) : 0.0;
+        double lp_new = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs) - coupling_penalty_new + log_cond_prior_new;
         log_probs.push_back(lp_new);
         clust_ids.push_back(new_clust_id);			
         // Normalize cluster assignment probabilities
@@ -261,6 +272,10 @@ void PYSplitMergeSampler::gibbs_step() {
         if (sizes(chosen_clust)++ == 0) {
             K_minus_i++;
         }
+        // Trigger callback updater if the cluster has been changed
+        if (gibbs_update_cb && chosen_clust != old_clust) {
+            gibbs_update_cb(i, old_clust, chosen_clust);
+        }
     }
     // Update the current state after the Gibbs sampler loop through observations
     curr_state.cluster_allocs = standardize_allocs(curr_state.cluster_allocs);
@@ -271,7 +286,7 @@ void PYSplitMergeSampler::gibbs_step() {
     return;
 };
 
-void PYSplitMergeSampler::sample_discount(size_t curr_iter) {
+void PYSampler::sample_discount(size_t curr_iter) {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "sample_discount()" << std::endl; }
     // Downcast to PYHierarchicalPrior pointer to access class specific methods
@@ -315,7 +330,7 @@ void PYSplitMergeSampler::sample_discount(size_t curr_iter) {
     }
 };
 
-void PYSplitMergeSampler::sample_concentration(size_t curr_iter) {
+void PYSampler::sample_concentration(size_t curr_iter) {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "sample_concentration()" << std::endl; }
     // Downcast to PYHierarchicalPrior pointer to access class specific methods
@@ -356,12 +371,15 @@ void PYSplitMergeSampler::sample_concentration(size_t curr_iter) {
     }
 };
 
-void PYSplitMergeSampler::step(size_t curr_iter) {
+void PYSampler::step(size_t curr_iter,
+                               FullCouplingCallback full_coupling_cb,
+                               GibbsCouplingCallback gibbs_coupling_cb,
+                               GibbsUpdateCallback gibbs_update_cb) {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "step()" << std::endl; }
     // Jain and Neal (2004) approach: Alternate standard Gibbs scans with Split-Merge proposals
     if (curr_iter % 2 == 0) {
-        this->gibbs_step();
+        this->gibbs_step(gibbs_coupling_cb, gibbs_update_cb);
     } else {
         // Check: if data are too few, you can' do S&M algorithm
         if (n_data < 2) return;
@@ -375,10 +393,10 @@ void PYSplitMergeSampler::step(size_t curr_iter) {
         // Select the MCMC move
         if (curr_state.cluster_allocs(obs_i) == curr_state.cluster_allocs(obs_j)) {
             // Observations in same cluster: try to split it
-            this->split_step(obs_i, obs_j);
+            this->split_step(obs_i, obs_j, full_coupling_cb);
         } else {
             // Observations in different clusters: try to merge them
-            this->merge_step(obs_i, obs_j);
+            this->merge_step(obs_i, obs_j, full_coupling_cb);
         }
     }
     // Sample hyperparameters of the PY process
@@ -386,7 +404,7 @@ void PYSplitMergeSampler::step(size_t curr_iter) {
     this->sample_concentration(curr_iter);
 };
 
-arma::uvec PYSplitMergeSampler::standardize_allocs(const arma::uvec & allocs) const {
+arma::uvec PYSampler::standardize_allocs(const arma::uvec & allocs) const {
     // Create std_allocs buffer
     arma::uvec std_allocs(allocs.n_elem, arma::fill::none);
     // Map old cluster ids to new contiguous ids
@@ -402,7 +420,7 @@ arma::uvec PYSplitMergeSampler::standardize_allocs(const arma::uvec & allocs) co
     return std_allocs;
 };
 
-double PYSplitMergeSampler::restricted_gibbs_sweep(arma::uvec & allocs, const arma::uvec & members, unsigned int obs_i, unsigned int obs_j, unsigned int clust_i, unsigned int clust_j, bool sample, const arma::uvec & target_allocs) {
+double PYSampler::restricted_gibbs_sweep(arma::uvec & allocs, const arma::uvec & members, unsigned int obs_i, unsigned int obs_j, unsigned int clust_i, unsigned int clust_j, bool sample, const arma::uvec & target_allocs) {
     // Downcast to PYFixedPrior pointer to access class specific methods    
     auto py_prior = std::dynamic_pointer_cast<PYFixedPrior>(prior);
     if (!py_prior) {

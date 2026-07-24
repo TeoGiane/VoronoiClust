@@ -5,6 +5,7 @@
 #include <memory>
 #include <random>
 #include <algorithm>
+#include <functional>
 
 // Rcpp includes
 #include <RcppArmadillo.h>
@@ -17,7 +18,17 @@
 #include "mcmc_utils.h"
 
 
-class PYSplitMergeSampler {
+// Callback types defintions (for multi-view extension)
+// Full state evaluation (used for Split/Merge)
+using FullCouplingCallback = std::function<double(const arma::uvec &)>;
+// O(1) Gibbs evaluation: inputs are (obs_i, old_clust, new_clust)
+using GibbsCouplingCallback = std::function<double(int, int, int)>;
+// O(1) Gibbs state update: inputs are (obs_i, old_clust, new_clust)
+using GibbsUpdateCallback = std::function<void(int, int, int)>;
+
+
+
+class PYSampler {
   // Class members
   private:
     // Data
@@ -30,7 +41,7 @@ class PYSplitMergeSampler {
     MixtureAlgorithmParams algo_params;
     // Internal MCMC state
     MixtureState curr_state;
-	// Adaptive RWMH sds
+	// Initial adaptive RWMH sds
 	double discount_sd = 0.1;
 	double concentration_sd = 0.1;
     // Random number generator
@@ -39,11 +50,16 @@ class PYSplitMergeSampler {
   // Public class methods
   public:
     // Constructor & destructor
-    PYSplitMergeSampler(const arma::mat & _distance_matrix,
+    PYSampler(const arma::mat & _distance_matrix,
 						std::shared_ptr<AbstractLikelihood> _likelihood_ptr,
 						std::shared_ptr<AbstractMixturePrior> _prior_ptr,
 						const MixtureAlgorithmParams & _algo_params);
-    ~PYSplitMergeSampler() = default;
+    ~PYSampler() = default;
+    // Proper initialization method
+    void init();
+    // Step method (exposed for milti-view extension)
+    void step(size_t curr_iter, FullCouplingCallback full_coupling_cb = nullptr, GibbsCouplingCallback gibbs_coupling_cb = nullptr,
+              GibbsUpdateCallback gibbs_update_cb = nullptr); 
     // Main MCMC loop
     MixtureMCMCOutput run();
     // Getters for results
@@ -52,13 +68,11 @@ class PYSplitMergeSampler {
   // Private class methods
   private:
     // MCMC Steps
-    void init();
-    void split_step(int obs_i, int obs_j);
-    void merge_step(int obs_i, int obs_j);
-	void gibbs_step();
+    void split_step(int obs_i, int obs_j, FullCouplingCallback full_coupling_cb = nullptr);
+    void merge_step(int obs_i, int obs_j, FullCouplingCallback full_coupling_cb = nullptr);
+	void gibbs_step(GibbsCouplingCallback gibbs_coupling_cb = nullptr, GibbsUpdateCallback gibbs_update_cb = nullptr);
 	void sample_discount(size_t curr_iter);
 	void sample_concentration(size_t curr_iter);
-    void step(size_t curr_iter); 
     // Utilities
     arma::uvec standardize_allocs(const arma::uvec & allocs) const;
 	double restricted_gibbs_sweep(arma::uvec & allocs, const arma::uvec & members,
