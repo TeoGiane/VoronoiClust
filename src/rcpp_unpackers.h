@@ -38,6 +38,19 @@ namespace Rcpp {
     };
 
     template <>
+    inline LinearLikelihoodParams as(SEXP x) {
+        Rcpp::List lst(x);
+        return LinearLikelihoodParams {
+            Rcpp::as<double>(lst["shape_within"]),
+            Rcpp::as<double>(lst["prior_shape_within"]),
+            Rcpp::as<double>(lst["prior_rate_within"]),
+            Rcpp::as<double>(lst["shape_between"]),
+            Rcpp::as<double>(lst["rate_between"]),
+            Rcpp::as<bool>(lst["repulsion"])
+        };
+    };
+
+    template <>
     inline TruncatedGeometricParams as(SEXP x) {
         Rcpp::List lst(x);
         return TruncatedGeometricParams {

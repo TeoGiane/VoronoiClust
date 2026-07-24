@@ -132,7 +132,7 @@ arma::vec VoronoiSampler::compute_birth_probs() const {
             auto it = std::lower_bound(cand_centres.begin(), cand_centres.end(), k);
             cand_centres.insert(it, k);
             arma::uvec cand_allocs = compute_tessellation(cand_centres);
-            double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs);
+            double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs, cand_centres);
             log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centres.size());
         }
         return apply_tempering(log_probs, algo_params.tempering, indices_to_flip);
@@ -168,7 +168,7 @@ arma::vec VoronoiSampler::compute_death_probs() const {
             );
             // Evaluate
             arma::uvec cand_allocs = compute_tessellation(cand_centres);
-            double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs);
+            double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs, cand_centres);
             log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centres.size());
         }
         return apply_tempering(log_probs, algo_params.tempering, indices_to_flip);
@@ -202,7 +202,7 @@ arma::vec VoronoiSampler::compute_move_probs(int old_centre_idx) const {
             std::sort(cand_centres.begin(), cand_centres.end());
             // Evaluate
             arma::uvec cand_allocs = compute_tessellation(cand_centres);
-            double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs);
+            double cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs, cand_centres);
             log_probs(k) = cand_lpdf + prior->eval_lpdf(cand_centres.size());
         }
         return apply_tempering(log_probs, algo_params.tempering, indices_to_flip);
@@ -243,7 +243,7 @@ void VoronoiSampler::init() {
     }
     // Compute initial tessellation and likelihood
     curr_state.cluster_allocs = compute_tessellation(curr_state.cluster_centres);
-    curr_state.lpdf = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs);
+    curr_state.lpdf = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs, curr_state.cluster_centres);
     // Initialization complete
     if (algo_params.debug) {curr_state.print();}    
     return;
@@ -270,7 +270,7 @@ TessellationProposal VoronoiSampler::generate_birth_proposal() {
     res.prop_n_clust = curr_state.n_clust;
     res.prop_centres = curr_state.cluster_centres;
     res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
-    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs);
+    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs, res.prop_centres);
     // Compute reverse probabilities
     arma::vec rev_probs = compute_death_probs();
     res.prob_old_new = rev_probs(new_centre_idx);
@@ -305,7 +305,7 @@ TessellationProposal VoronoiSampler::generate_death_proposal() {
     res.prop_n_clust = curr_state.n_clust;
     res.prop_centres = curr_state.cluster_centres;
     res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
-    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs);
+    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs, res.prop_centres);
     // Compute reverse probabilities
     arma::vec rev_probs = compute_birth_probs();
     res.prob_old_new = rev_probs(dead_centre_idx);
@@ -345,7 +345,7 @@ TessellationProposal VoronoiSampler::generate_move_proposal() {
     res.prop_n_clust = curr_state.n_clust;
     res.prop_centres = curr_state.cluster_centres;
     res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
-    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs);
+    res.prop_lpdf = likelihood->eval_lpdf(distance_matrix, res.prop_cluster_allocs, res.prop_centres);
     // Compute reverse probabilities
     arma::vec rev_probs = compute_move_probs(new_centre_idx);
     res.prob_old_new = rev_probs(old_centre_idx);

@@ -7,6 +7,9 @@ std::shared_ptr<AbstractLikelihood> build_likelihood(const Rcpp::List& params) {
     if (type == "quadratic") {
         auto cfg = Rcpp::as<QuadraticLikelihoodParams>(params);
         return std::make_shared<QuadraticTessellationLikelihood>(cfg);
+    } else if (type == "linear") {
+        auto cfg = Rcpp::as<LinearLikelihoodParams>(params);
+        return std::make_shared<LinearTessellationLikelihood>(cfg);
     } else { 
         throw std::invalid_argument("Unknown likelihood type requested: " + type);
     }
