@@ -2,6 +2,22 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' Run Reversible Jump MCMC for Voronoi Tessellation
+#' @title Run Reversible Jump MCMC for Voronoi Tessellation
+#' @description This function runs a Reversible Jump Markov Chain Monte Carlo (RJMCMC) sampler
+#' for a Voronoi tessellation-based clustering model.
+#'
+#' @param distance_matrix A square numeric matrix of pairwise distances between data points.
+#' @param likelihood_params A list specifying the likelihood parameters. See \code{\link{likelihood_params}} for details.
+#' @param prior_params A list specifying the prior parameters. See \code{\link{prior_params}} for details on the `"truncated_geometric"` prior.
+#' @param algo_params A list of algorithm parameters. See \code{\link{algorithm_params}} for details on the tessellation model parameters.
+#'
+#' @return A list containing the MCMC output:
+#'   \itemize{
+#'     \item \code{cluster_allocs}: A matrix of cluster allocations for each retained sample.
+#'     \item \code{centres}: A list of vectors, where each vector contains the indices of cluster centres for a retained sample.
+#'     \item \code{n_clust}: A vector of the number of clusters for each retained sample.
+#'     \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+#'   }
 #'
 #' @export
 mcmc_tessellation <- function(distance_matrix, likelihood_params, prior_params, algo_params) {
@@ -9,6 +25,23 @@ mcmc_tessellation <- function(distance_matrix, likelihood_params, prior_params, 
 }
 
 #' Run Split-Merge MCMC for Pitman-Yor Process Mixture Model
+#' @title Run Split-Merge MCMC for Pitman-Yor Process Mixture Model
+#' @description This function runs a Split-Merge MCMC sampler for a Pitman-Yor process
+#' mixture model.
+#'
+#' @param distance_matrix A square numeric matrix of pairwise distances between data points.
+#' @param likelihood_params A list specifying the likelihood parameters. See \code{\link{likelihood_params}} for details.
+#' @param prior_params A list specifying the Pitman-Yor process prior parameters. See \code{\link{prior_params}} for details on the `"PY-fixed"` and `"PY-hierarchical"` priors.
+#' @param algo_params A list of algorithm parameters. See \code{\link{algorithm_params}} for details on the mixture model parameters.
+#'
+#' @return A list containing the MCMC output:
+#'   \itemize{
+#'     \item \code{cluster_allocs}: A matrix of cluster allocations for each retained sample.
+#'     \item \code{n_clust}: A vector of the number of clusters for each retained sample.
+#'     \item \code{discount}: A vector of the discount parameter values for each retained sample. For a fixed prior, this will be constant.
+#'     \item \code{concentration}: A vector of the concentration parameter values for each retained sample. For a fixed prior, this will be constant.
+#'     \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+#'   }
 #'
 #' @export
 mcmc_PY <- function(distance_matrix, likelihood_params, prior_params, algo_params) {
@@ -16,9 +49,43 @@ mcmc_PY <- function(distance_matrix, likelihood_params, prior_params, algo_param
 }
 
 #' Run Reversible Jump MCMC for Multi-View Voronoi Tessellation
+#' @title Run Reversible Jump MCMC for Multi-View Voronoi Tessellation
+#' @description This function runs an RJMCMC sampler for a multi-view Voronoi
+#' tessellation-based clustering model, coupling multiple views through their clustering structures.
+#'
+#' @param distance_matrices A list of square numeric matrices, one for each view,
+#'   representing pairwise distances.
+#' @param likelihood_params A list containing parameters for the likelihood across all views. See \code{\link{multiview_params}} for details.
+#' @param prior_params A list containing prior parameters for each view. See \code{\link{multiview_params}} for details.
+#' @param algo_params A list of algorithm parameters. See \code{\link{algorithm_params}} for details on the tessellation model parameters.
+#' @return A list containing the multi-view MCMC output:
+#'   \itemize{
+#'     \item \code{views}: A list of lists, where each inner list contains the MCMC output for a single view (see `mcmc_tessellation` return value).
+#'     \item \code{joint_lpdf}: A vector of the joint log-posterior density values (including coupling) for each retained sample.
+#'   }
 #'
 #' @export
-mcmc_multiview_tessellation <- function(distance_matrices, likelihood_params, prior_params, algo_params) {
-    .Call(`_HPCVoronoiClust_mcmc_multiview_tessellation`, distance_matrices, likelihood_params, prior_params, algo_params)
+mcmc_tessellation_multiview <- function(distance_matrices, likelihood_params, prior_params, algo_params) {
+    .Call(`_HPCVoronoiClust_mcmc_tessellation_multiview`, distance_matrices, likelihood_params, prior_params, algo_params)
+}
+
+#' Run Split-Merge MCMC for Multi-View Pitman-Yor Mixture Model
+#' @title Run Split-Merge MCMC for Multi-View Pitman-Yor Mixture Model
+#' @description This function runs a Split-Merge MCMC sampler for a multi-view Pitman-Yor
+#' process mixture model, coupling multiple views.
+#'
+#' @param distance_matrices A list of square numeric matrices, one for each view.
+#' @param likelihood_params A list containing parameters for the likelihood across all views. See \code{\link{multiview_params}} for details.
+#' @param prior_params A list containing prior parameters for each view. See \code{\link{multiview_params}} for details.
+#' @param algo_params A list of algorithm parameters. See \code{\link{algorithm_params}} for details on the mixture model parameters.
+#' @return A list containing the multi-view MCMC output:
+#'   \itemize{
+#'     \item \code{views}: A list of lists, where each inner list contains the MCMC output for a single view (see `mcmc_PY` return value).
+#'     \item \code{joint_lpdf}: A vector of the joint log-posterior density values (including coupling) for each retained sample.
+#'   }
+#'
+#' @export
+mcmc_PY_multiview <- function(distance_matrices, likelihood_params, prior_params, algo_params) {
+    .Call(`_HPCVoronoiClust_mcmc_PY_multiview`, distance_matrices, likelihood_params, prior_params, algo_params)
 }
 

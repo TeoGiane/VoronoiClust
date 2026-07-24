@@ -1,0 +1,21 @@
+#' @name multiview_params
+#' @title Multi-View Parameters
+#' @description In multi-view models, the `likelihood_params` and `prior_params` arguments have a nested structure to accommodate parameters for each view and for the coupling between them.
+#'
+#' @section Multi-View `likelihood_params`:
+#' A list containing:
+#' \itemize{
+#'   \item `views_params`: A list where each element is a list of likelihood parameters for a single view. See \code{\link{likelihood_params}} for details on the inner lists.
+#'   \item `coupling_params`: A list for coupling parameters:
+#'     \itemize{
+#'       \item `strength_alpha`: The alpha parameter for the Beta-prime distribution on the coupling strength.
+#'       \item `strength_beta`: The beta parameter for the Beta-prime distribution on the coupling strength.
+#'     }
+#' }
+#'
+#' @section Multi-View `prior_params`:
+#' A list containing:
+#' \itemize{
+#'   \item `views_params`: A list where each element is a list of prior parameters for a single view. See \code{\link{prior_params}} for details on the inner lists.
+#' }
+NULL
