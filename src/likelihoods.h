@@ -36,3 +36,17 @@ class QuadraticTessellationLikelihood : public AbstractLikelihood {
     // Evaluation function (override)
     double eval_lpdf(const arma::mat & dist_matrix, const arma::uvec & cluster_allocs) const override;
 };
+
+
+/* Extra likelihood parameters for multi-view models */
+// Struct to hold multi-view coupling parameters
+struct CouplingParams {
+    double strength_alpha;
+    double strength_beta;
+};
+
+// Helper struct to manage computation of conditional couplings between views
+struct ConditionalCouplingResult {
+    double total_conditional_sum;
+    std::vector<double> pairwise_terms;
+};
