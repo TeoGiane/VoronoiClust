@@ -23,7 +23,10 @@ double beta_lpdf(double x, double alpha, double beta);
 double gamma_lpdf(double x, double shape, double rate);
 
 // Rand index between two cluster allocation vector
-double compute_rand_index(const arma::uvec & clus_allocs_1, const arma::uvec& clus_allocs_2);
+double compute_rand_index(const arma::uvec & clus_allocs_1, const arma::uvec & clus_allocs_2);
+
+// Wrap the output of a multiview tessellation sampler into a structured Rcpp list
+Rcpp::List wrap_multiview_output(const MultiViewMCMCOutput & out);
 
 // Wrap the output of a multiview sampler into a structured Rcpp list
-Rcpp::List wrap_multiview_output(const MultiViewMCMCOutput& out);
+Rcpp::List wrap_multiview_mixture_output(const MultiViewMixtureMCMCOutput & out);
