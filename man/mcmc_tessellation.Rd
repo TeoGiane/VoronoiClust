@@ -27,6 +27,7 @@ A list containing the MCMC output:
     \item \code{centres}: A list of vectors, where each vector contains the indices of cluster centres for a retained sample.
     \item \code{n_clust}: A vector of the number of clusters for each retained sample.
     \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+    \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
   }
 }
 \description{

@@ -17,6 +17,7 @@ MixtureMCMCOutput PYSampler::run() {
     out.discount.set_size(n_retained);
     out.concentration.set_size(n_retained);
     out.lpdf.set_size(n_retained);
+    out.iteration_time.set_size(n_retained);
     // Print inital message (if not in debug mode)
     if (!algo_params.debug) {
         Rcpp::Rcout << "VoronoiClust: Pitman-Yor MCMC (" << algo_params.iterations << " iterations)" << std::endl;
@@ -35,10 +36,14 @@ MixtureMCMCOutput PYSampler::run() {
             out.discount.shed_rows(save_idx, n_retained - 1);
             out.concentration.shed_rows(save_idx, n_retained - 1);
             out.lpdf.shed_rows(save_idx, n_retained - 1);
+            out.iteration_time.shed_rows(save_idx, n_retained - 1);
             break;
         }
         // Single MCMC step (Jain & Neal 2004 algorithm)
+        auto start = std::chrono::high_resolution_clock::now();
         this->step(i);
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
         // Store output if past burn-in and respecting thinning
         if (i >= algo_params.burnin && (i - algo_params.burnin) % algo_params.thinning == 0) {
             out.cluster_allocs.row(save_idx) = curr_state.cluster_allocs.t();
@@ -46,6 +51,7 @@ MixtureMCMCOutput PYSampler::run() {
             out.discount(save_idx) = curr_state.discount;
             out.concentration(save_idx) = curr_state.concentration;
             out.lpdf(save_idx) = curr_state.lpdf;
+            out.iteration_time(save_idx) = elapsed.count();
             save_idx++;
         }
         // Increment the progress bar

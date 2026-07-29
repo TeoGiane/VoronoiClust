@@ -6,6 +6,7 @@
 #include <random>
 #include <algorithm>
 #include <functional>
+#include <chrono>
 
 // Rcpp includes
 #include <RcppArmadillo.h>

@@ -25,6 +25,7 @@ A list containing the multi-view MCMC output:
   \itemize{
     \item \code{views}: A list of lists, where each inner list contains the MCMC output for a single view (see `mcmc_PY` return value).
     \item \code{joint_lpdf}: A vector of the joint log-posterior density values (including coupling) for each retained sample.
+    \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
   }
 }
 \description{

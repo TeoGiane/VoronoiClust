@@ -123,7 +123,8 @@ Rcpp::List wrap_multiview_output(const MultiViewMCMCOutput& out) {
     // Return list of lists    
     return Rcpp::List::create(
         Rcpp::Named("views")      = views_list,
-        Rcpp::Named("joint_lpdf") = out.joint_lpdf
+        Rcpp::Named("joint_lpdf") = out.joint_lpdf,
+        Rcpp::Named("iteration_time") = out.iteration_time
     );
 };
 
@@ -146,6 +147,7 @@ Rcpp::List wrap_multiview_mixture_output(const MultiViewMixtureMCMCOutput& out) 
     // Return list of lists
     return Rcpp::List::create(
         Rcpp::Named("views")      = views_list,
-        Rcpp::Named("joint_lpdf") = out.joint_lpdf
+        Rcpp::Named("joint_lpdf") = out.joint_lpdf,
+        Rcpp::Named("iteration_time") = out.iteration_time
     );
 };

@@ -17,6 +17,7 @@ MCMCOutput VoronoiSampler::run() {
     out.centres.reserve(n_retained);
     out.n_clust.set_size(n_retained);
     out.lpdf.set_size(n_retained);
+    out.iteration_time.set_size(n_retained);
     // Print inital message (if not in debug mode)
     if (!algo_params.debug) {
         Rcpp::Rcout << "VoronoiClust: Tessellation MCMC (" << algo_params.iterations << " iterations)" << std::endl;
@@ -33,16 +34,22 @@ MCMCOutput VoronoiSampler::run() {
             out.cluster_allocs.shed_rows(save_idx, n_retained - 1);
             out.n_clust.shed_rows(save_idx, n_retained - 1);
             out.lpdf.shed_rows(save_idx, n_retained - 1);
+            out.iteration_time.shed_rows(save_idx, n_retained - 1);
+            // Return
             break;
         }
         // Single MCMC step (birth, death, or move)
+        auto start = std::chrono::high_resolution_clock::now();
         this->step(i);
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
         // Store output if past burn-in and respecting thinning
         if (i >= algo_params.burnin && (i - algo_params.burnin) % algo_params.thinning == 0) {
             out.cluster_allocs.row(save_idx) = curr_state.cluster_allocs.t();
             out.centres.push_back(curr_state.cluster_centres);
             out.n_clust(save_idx) = curr_state.n_clust;
             out.lpdf(save_idx) = curr_state.lpdf;
+            out.iteration_time(save_idx) = elapsed.count();
             save_idx++;
         }
         // Increment the progress bar

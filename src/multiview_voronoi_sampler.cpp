@@ -24,6 +24,7 @@ MultiViewMCMCOutput MultiViewVoronoiSampler::run() {
         out.views[v].lpdf.set_size(n_retained);
     }
     out.joint_lpdf.set_size(n_retained);
+    out.iteration_time.set_size(n_retained);
     // Print initial message (if not in debug mode)
     if (!algo_params.debug) {
         Rcpp::Rcout << "VoronoiClust: Multiview Tessellation MCMC (" << algo_params.iterations << " iterations)" << std::endl;
@@ -42,10 +43,14 @@ MultiViewMCMCOutput MultiViewVoronoiSampler::run() {
                 out.views[v].lpdf.shed_rows(save_idx, n_retained - 1);
             }
             out.joint_lpdf.shed_rows(save_idx, n_retained - 1);
+            out.iteration_time.shed_rows(save_idx, n_retained - 1);
             break;
         }
         // Single MCMC step
+        auto start = std::chrono::high_resolution_clock::now();
         this->step(i);
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = end - start;
         // Store output if past burn-in and respecting thinning
         if (i >= algo_params.burnin && (i - algo_params.burnin) % algo_params.thinning == 0) {
             // Start the joint likelihood with the tracked total_coupling
@@ -59,6 +64,7 @@ MultiViewMCMCOutput MultiViewVoronoiSampler::run() {
                 current_joint_lpdf += v_state.lpdf;
             }
             out.joint_lpdf(save_idx) = current_joint_lpdf;
+            out.iteration_time(save_idx) = elapsed.count();
             save_idx++;
         }
         // Increment the progress bar

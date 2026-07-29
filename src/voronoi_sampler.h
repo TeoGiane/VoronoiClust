@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include <random>
+#include <chrono>
 
 // Rcpp includes
 #include <RcppArmadillo.h>

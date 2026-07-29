@@ -23,6 +23,7 @@ A list containing the MCMC output:
     \item \code{discount}: A vector of the discount parameter values for each retained sample. For a fixed prior, this will be constant.
     \item \code{concentration}: A vector of the concentration parameter values for each retained sample. For a fixed prior, this will be constant.
     \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+    \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
   }
 }
 \description{

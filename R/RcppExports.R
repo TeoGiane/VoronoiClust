@@ -17,6 +17,7 @@
 #'     \item \code{centres}: A list of vectors, where each vector contains the indices of cluster centres for a retained sample.
 #'     \item \code{n_clust}: A vector of the number of clusters for each retained sample.
 #'     \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+#'     \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
 #'   }
 #'
 #' @export
@@ -41,6 +42,7 @@ mcmc_tessellation <- function(distance_matrix, likelihood_params, prior_params, 
 #'     \item \code{discount}: A vector of the discount parameter values for each retained sample. For a fixed prior, this will be constant.
 #'     \item \code{concentration}: A vector of the concentration parameter values for each retained sample. For a fixed prior, this will be constant.
 #'     \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+#'     \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
 #'   }
 #'
 #' @export
@@ -62,6 +64,7 @@ mcmc_PY <- function(distance_matrix, likelihood_params, prior_params, algo_param
 #'   \itemize{
 #'     \item \code{views}: A list of lists, where each inner list contains the MCMC output for a single view (see `mcmc_tessellation` return value).
 #'     \item \code{joint_lpdf}: A vector of the joint log-posterior density values (including coupling) for each retained sample.
+#'     \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
 #'   }
 #'
 #' @export
@@ -82,6 +85,7 @@ mcmc_tessellation_multiview <- function(distance_matrices, likelihood_params, pr
 #'   \itemize{
 #'     \item \code{views}: A list of lists, where each inner list contains the MCMC output for a single view (see `mcmc_PY` return value).
 #'     \item \code{joint_lpdf}: A vector of the joint log-posterior density values (including coupling) for each retained sample.
+#'     \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
 #'   }
 #'
 #' @export

@@ -35,6 +35,7 @@
 //'     \item \code{centres}: A list of vectors, where each vector contains the indices of cluster centres for a retained sample.
 //'     \item \code{n_clust}: A vector of the number of clusters for each retained sample.
 //'     \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+//'     \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
 //'   }
 //'
 //' @export
@@ -60,7 +61,8 @@ Rcpp::List mcmc_tessellation(const arma::mat& distance_matrix, Rcpp::List likeli
         Rcpp::Named("cluster_allocs") = out.cluster_allocs + 1,
         Rcpp::Named("centres") = r_centres,
         Rcpp::Named("n_clust") = out.n_clust,
-        Rcpp::Named("lpdf") = out.lpdf
+        Rcpp::Named("lpdf") = out.lpdf,
+        Rcpp::Named("iteration_time") = out.iteration_time
     );
 };
 
@@ -81,6 +83,7 @@ Rcpp::List mcmc_tessellation(const arma::mat& distance_matrix, Rcpp::List likeli
 //'     \item \code{discount}: A vector of the discount parameter values for each retained sample. For a fixed prior, this will be constant.
 //'     \item \code{concentration}: A vector of the concentration parameter values for each retained sample. For a fixed prior, this will be constant.
 //'     \item \code{lpdf}: A vector of the log-posterior density values for each retained sample.
+//'     \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
 //'   }
 //'
 //' @export
@@ -100,7 +103,8 @@ Rcpp::List mcmc_PY(const arma::mat& distance_matrix, Rcpp::List likelihood_param
         Rcpp::Named("n_clust") = out.n_clust,
         Rcpp::Named("discount") = out.discount,
         Rcpp::Named("concentration") = out.concentration,
-        Rcpp::Named("lpdf") = out.lpdf
+        Rcpp::Named("lpdf") = out.lpdf,
+        Rcpp::Named("iteration_time") = out.iteration_time
     );
 };
 
@@ -119,6 +123,7 @@ Rcpp::List mcmc_PY(const arma::mat& distance_matrix, Rcpp::List likelihood_param
 //'   \itemize{
 //'     \item \code{views}: A list of lists, where each inner list contains the MCMC output for a single view (see `mcmc_tessellation` return value).
 //'     \item \code{joint_lpdf}: A vector of the joint log-posterior density values (including coupling) for each retained sample.
+//'     \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
 //'   }
 //'
 //' @export
@@ -171,6 +176,7 @@ Rcpp::List mcmc_tessellation_multiview(const Rcpp::List & distance_matrices, con
 //'   \itemize{
 //'     \item \code{views}: A list of lists, where each inner list contains the MCMC output for a single view (see `mcmc_PY` return value).
 //'     \item \code{joint_lpdf}: A vector of the joint log-posterior density values (including coupling) for each retained sample.
+//'     \item \code{iteration_time}: A vector of the iterations' execution time (in seconds) for each retained sample.
 //'   }
 //'
 //' @export

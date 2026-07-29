@@ -52,6 +52,7 @@ struct MCMCOutput {
     std::vector<std::vector<arma::uword>> centres;  // Length S
     arma::uvec n_clust;                             // Length S
     arma::vec lpdf;                                 // Length S
+    arma::vec iteration_time;                       // Length S
 };
 
 
@@ -96,6 +97,7 @@ struct MixtureMCMCOutput {
 	arma::vec discount;                             // Length S
 	arma::vec concentration;                        // Length S
     arma::vec lpdf;                                 // Length S
+    arma::vec iteration_time;                       // Length S
 };
 
 
@@ -110,10 +112,12 @@ struct MixtureMCMCOutput {
 struct MultiViewMCMCOutput {
     std::vector<MCMCOutput> views;  // Length V (One full trace per view)
     arma::vec joint_lpdf;           // Length S (Sum of marginal likelihoods + coupling)
+    arma::vec iteration_time;       // Length S
 };
 
 // Struct collecting multi-view mixture MCMC output
 struct MultiViewMixtureMCMCOutput {
     std::vector<MixtureMCMCOutput> views; // Length V (One full trace per view)
     arma::vec joint_lpdf;                 // Length S (Sum of marginals + coupling)
+    arma::vec iteration_time;             // Length S
 };
