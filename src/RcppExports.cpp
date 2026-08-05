@@ -14,7 +14,7 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 
 // mcmc_tessellation
 Rcpp::List mcmc_tessellation(const arma::mat& distance_matrix, Rcpp::List likelihood_params, Rcpp::List prior_params, Rcpp::List algo_params);
-RcppExport SEXP _HPCVoronoiClust_mcmc_tessellation(SEXP distance_matrixSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
+RcppExport SEXP _VoronoiClust_mcmc_tessellation(SEXP distance_matrixSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -28,7 +28,7 @@ END_RCPP
 }
 // mcmc_PY
 Rcpp::List mcmc_PY(const arma::mat& distance_matrix, Rcpp::List likelihood_params, Rcpp::List prior_params, Rcpp::List algo_params);
-RcppExport SEXP _HPCVoronoiClust_mcmc_PY(SEXP distance_matrixSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
+RcppExport SEXP _VoronoiClust_mcmc_PY(SEXP distance_matrixSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -42,7 +42,7 @@ END_RCPP
 }
 // mcmc_tessellation_multiview
 Rcpp::List mcmc_tessellation_multiview(const Rcpp::List& distance_matrices, const Rcpp::List& likelihood_params, const Rcpp::List& prior_params, const Rcpp::List& algo_params);
-RcppExport SEXP _HPCVoronoiClust_mcmc_tessellation_multiview(SEXP distance_matricesSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
+RcppExport SEXP _VoronoiClust_mcmc_tessellation_multiview(SEXP distance_matricesSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -56,7 +56,7 @@ END_RCPP
 }
 // mcmc_PY_multiview
 Rcpp::List mcmc_PY_multiview(const Rcpp::List& distance_matrices, const Rcpp::List& likelihood_params, const Rcpp::List& prior_params, const Rcpp::List& algo_params);
-RcppExport SEXP _HPCVoronoiClust_mcmc_PY_multiview(SEXP distance_matricesSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
+RcppExport SEXP _VoronoiClust_mcmc_PY_multiview(SEXP distance_matricesSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -70,14 +70,14 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_HPCVoronoiClust_mcmc_tessellation", (DL_FUNC) &_HPCVoronoiClust_mcmc_tessellation, 4},
-    {"_HPCVoronoiClust_mcmc_PY", (DL_FUNC) &_HPCVoronoiClust_mcmc_PY, 4},
-    {"_HPCVoronoiClust_mcmc_tessellation_multiview", (DL_FUNC) &_HPCVoronoiClust_mcmc_tessellation_multiview, 4},
-    {"_HPCVoronoiClust_mcmc_PY_multiview", (DL_FUNC) &_HPCVoronoiClust_mcmc_PY_multiview, 4},
+    {"_VoronoiClust_mcmc_tessellation", (DL_FUNC) &_VoronoiClust_mcmc_tessellation, 4},
+    {"_VoronoiClust_mcmc_PY", (DL_FUNC) &_VoronoiClust_mcmc_PY, 4},
+    {"_VoronoiClust_mcmc_tessellation_multiview", (DL_FUNC) &_VoronoiClust_mcmc_tessellation_multiview, 4},
+    {"_VoronoiClust_mcmc_PY_multiview", (DL_FUNC) &_VoronoiClust_mcmc_PY_multiview, 4},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_HPCVoronoiClust(DllInfo *dll) {
+RcppExport void R_init_VoronoiClust(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }
