@@ -95,7 +95,7 @@ void PYSampler::init() {
     }
     curr_state.lpdf = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs);
     // Initialization complete
-    if (algo_params.debug) { curr_state.print(); }    
+    if (algo_params.debug) { curr_state.print(); }
     return;
 };
 
@@ -132,7 +132,7 @@ void PYSampler::split_step(int obs_i, int obs_j, FullCouplingCallback full_coupl
     double curr_coupling = full_coupling_cb ? full_coupling_cb(curr_state.cluster_allocs) : 0.0;
     double prop_coupling = full_coupling_cb ? full_coupling_cb(prop_allocs) : 0.0;
     // Compute acceptance ratio (reverse merge is deterministic, so log_q_merge = 0)
-    double log_arate = (prop_lpdf - prop_coupling) - (curr_state.lpdf - curr_coupling) + 
+    double log_arate = (prop_lpdf - prop_coupling) - (curr_state.lpdf - curr_coupling) +
         prior->eval_lpdf(prop_allocs) - prior->eval_lpdf(curr_state.cluster_allocs) - log_q_split;
     // Test for acceptance
     if(std::log(runif(rng)) < log_arate) {
@@ -185,7 +185,7 @@ void PYSampler::merge_step(int obs_i, int obs_j, FullCouplingCallback full_coupl
     // Final sweep: do not sample, but force transition into curr_state and calculate probability
     double log_q_split_rev = restricted_gibbs_sweep(dummy_allocs, merged_members, obs_i, obs_j, clust_i, clust_j, false, curr_state.cluster_allocs);
     // Compute acceptance ratio (forward merge is deterministic, so log_q_merge = 0)
-    double log_arate = (prop_lpdf - prop_coupling) - (curr_state.lpdf - curr_coupling) + 
+    double log_arate = (prop_lpdf - prop_coupling) - (curr_state.lpdf - curr_coupling) +
         prior->eval_lpdf(standardized_prop) - prior->eval_lpdf(curr_state.cluster_allocs) + log_q_split_rev;
     // Test for acceptance
     if(std::log(runif(rng)) < log_arate) {
@@ -209,10 +209,10 @@ void PYSampler::gibbs_step(GibbsCouplingCallback gibbs_coupling_cb,
     auto py_prior = std::dynamic_pointer_cast<PYFixedPrior>(prior);
     if (!py_prior) {
         throw std::runtime_error("Prior must be of type PYFixedPrior (or derived).");
-    }	
+    }
     // Initialize global cluster counts (max possible clusters is strictly bounded by n_data)
     arma::uvec sizes = arma::zeros<arma::uvec>(n_data);
-    int K_minus_i = 0;		
+    int K_minus_i = 0;
     for (size_t j = 0; j < n_data; ++j) {
         if (sizes(curr_state.cluster_allocs(j))++ == 0) {
             K_minus_i++; // Track the number of active clusters
@@ -253,7 +253,7 @@ void PYSampler::gibbs_step(GibbsCouplingCallback gibbs_coupling_cb,
         double coupling_penalty_new = gibbs_coupling_cb ? gibbs_coupling_cb(i, old_clust, new_clust_id) : 0.0;
         double lp_new = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs) - coupling_penalty_new + log_cond_prior_new;
         log_probs.push_back(lp_new);
-        clust_ids.push_back(new_clust_id);			
+        clust_ids.push_back(new_clust_id);
         // Normalize cluster assignment probabilities
         double max_lp = *std::max_element(log_probs.begin(), log_probs.end());
         std::vector<double> probs(log_probs.size());
@@ -263,7 +263,7 @@ void PYSampler::gibbs_step(GibbsCouplingCallback gibbs_coupling_cb,
             sum_probs += probs[j];
         }
         // Sample the new cluster assignment
-        double u = runif(rng) * sum_probs; 
+        double u = runif(rng) * sum_probs;
         double cumulative = 0.0;
         int chosen_clust = clust_ids.back();
         for (size_t j = 0; j < probs.size(); ++j) {
@@ -272,7 +272,7 @@ void PYSampler::gibbs_step(GibbsCouplingCallback gibbs_coupling_cb,
                 chosen_clust = clust_ids[j];
                 break;
             }
-        }			
+        }
         // Apply choice and restore the cluster count
         curr_state.cluster_allocs(i) = chosen_clust;
         if (sizes(chosen_clust)++ == 0) {
@@ -298,7 +298,7 @@ void PYSampler::sample_discount(size_t curr_iter) {
     // Downcast to PYHierarchicalPrior pointer to access class specific methods
     auto py_prior = std::dynamic_pointer_cast<PYHierarchicalPrior>(prior);
     if (!py_prior) return;
-    // Get required parameters from PY prior     
+    // Get required parameters from PY prior
     double curr_discount = py_prior->get_discount();
     double curr_concentration = py_prior->get_concentration();
     double alpha_d = py_prior->get_hyper_params().discount_alpha;
@@ -308,7 +308,7 @@ void PYSampler::sample_discount(size_t curr_iter) {
     double upper_bound = 1.0 - 1e-7;
     double prop_discount = truncated_normal_rng(curr_discount, discount_sd, lower_bound, upper_bound, rng);
     // Evaluate lpdf at current state
-    double curr_lpdf = py_prior->eval_lpdf(curr_state.cluster_allocs) + 
+    double curr_lpdf = py_prior->eval_lpdf(curr_state.cluster_allocs) +
         beta_lpdf(curr_discount, alpha_d, beta_d);
     // Evaluate lpdf at proposed state
     py_prior->set_discount(prop_discount);
@@ -326,7 +326,7 @@ void PYSampler::sample_discount(size_t curr_iter) {
         if (algo_params.debug) Rcpp::Rcout << "Discount updated to: " << prop_discount << std::endl;
     } else {
         py_prior->set_discount(curr_discount);
-    }       
+    }
     // Robbins-Monro Adaptation
     double alpha = std::exp(std::min(0.0, log_arate));
     if (curr_iter <= algo_params.burnin) {
@@ -360,7 +360,7 @@ void PYSampler::sample_concentration(size_t curr_iter) {
     double rev_lpdf = truncated_normal_lpdf(curr_concentration, prop_concentration, concentration_sd, 0.0, arma::datum::inf);
     // Compute acceptance ratio
     double log_arate = prop_lpdf - curr_lpdf + rev_lpdf - fwd_lpdf;
-    // Test for acceptance        
+    // Test for acceptance
     std::uniform_real_distribution<double> runif(0.0, 1.0);
     if (std::log(runif(rng)) < log_arate) {
         curr_state.concentration = prop_concentration;
@@ -384,27 +384,27 @@ void PYSampler::step(size_t curr_iter,
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "step()" << std::endl; }
     // Jain and Neal (2004) approach: Alternate standard Gibbs scans with Split-Merge proposals
-    if (curr_iter % 2 == 0) {
-        this->gibbs_step(gibbs_coupling_cb, gibbs_update_cb);
-    } else {
-        // Check: if data are too few, you can' do S&M algorithm
-        if (n_data < 2) return;
-        // Sample two random observations
-        std::uniform_int_distribution<int> dist(0, n_data - 1);
-        int obs_i = dist(rng);
-        int obs_j = dist(rng);
-        while(obs_i == obs_j) {
-            obs_j = dist(rng);
-        }
-        // Select the MCMC move
-        if (curr_state.cluster_allocs(obs_i) == curr_state.cluster_allocs(obs_j)) {
-            // Observations in same cluster: try to split it
-            this->split_step(obs_i, obs_j, full_coupling_cb);
-        } else {
-            // Observations in different clusters: try to merge them
-            this->merge_step(obs_i, obs_j, full_coupling_cb);
-        }
+    // if (curr_iter % 2 == 0) {
+        // this->gibbs_step(gibbs_coupling_cb, gibbs_update_cb);
+    // } else {
+    // Check: if data are too few, you can' do S&M algorithm
+    if (n_data < 2) return;
+    // Sample two random observations
+    std::uniform_int_distribution<int> dist(0, n_data - 1);
+    int obs_i = dist(rng);
+    int obs_j = dist(rng);
+    while(obs_i == obs_j) {
+        obs_j = dist(rng);
     }
+    // Select the MCMC move
+    if (curr_state.cluster_allocs(obs_i) == curr_state.cluster_allocs(obs_j)) {
+        // Observations in same cluster: try to split it
+        this->split_step(obs_i, obs_j, full_coupling_cb);
+    } else {
+        // Observations in different clusters: try to merge them
+        this->merge_step(obs_i, obs_j, full_coupling_cb);
+    }
+    // }
     // Sample hyperparameters of the PY process
     this->sample_discount(curr_iter);
     this->sample_concentration(curr_iter);
@@ -427,7 +427,7 @@ arma::uvec PYSampler::standardize_allocs(const arma::uvec & allocs) const {
 };
 
 double PYSampler::restricted_gibbs_sweep(arma::uvec & allocs, const arma::uvec & members, unsigned int obs_i, unsigned int obs_j, unsigned int clust_i, unsigned int clust_j, bool sample, const arma::uvec & target_allocs) {
-    // Downcast to PYFixedPrior pointer to access class specific methods    
+    // Downcast to PYFixedPrior pointer to access class specific methods
     auto py_prior = std::dynamic_pointer_cast<PYFixedPrior>(prior);
     if (!py_prior) {
         throw std::runtime_error("Prior must be of type PYFixedPrior (or derived) for Gibbs.");
@@ -469,7 +469,7 @@ double PYSampler::restricted_gibbs_sweep(arma::uvec & allocs, const arma::uvec &
             chosen_clust = target_allocs(m);
         }
         // Accumulate transition probabilites
-        log_transition_prob += (chosen_clust == clust_i) ? prob_i_log : prob_j_log;   
+        log_transition_prob += (chosen_clust == clust_i) ? prob_i_log : prob_j_log;
         // Apply choice and restore the cluster count for the next iteration
         allocs(m) = chosen_clust;
         if (chosen_clust == clust_i) n_i++;
