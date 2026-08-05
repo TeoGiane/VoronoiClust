@@ -1,5 +1,5 @@
 ## usethis namespace: start
 #' @importFrom Rcpp sourceCpp
-#' @useDynLib HPCVoronoiClust, .registration = TRUE
+#' @useDynLib VoronoiClust, .registration = TRUE
 ## usethis namespace: end
 NULL
