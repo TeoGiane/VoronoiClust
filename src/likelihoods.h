@@ -36,6 +36,8 @@ class QuadraticTessellationLikelihood : public AbstractLikelihood {
     ~QuadraticTessellationLikelihood() = default;
     // Evaluation function (override)
     double eval_lpdf(const arma::mat & dist_matrix, const arma::uvec & cluster_allocs, const std::optional<const std::vector<arma::uword>>& centers = std::nullopt) const override;
+    // Getter (needed by the incremental sufficient-statistics cache)
+    const QuadraticLikelihoodParams & get_params() const { return params; };
 };
 
 // Derived concrete class: linear tessellation likelihood
@@ -57,6 +59,8 @@ class LinearTessellationLikelihood : public AbstractLikelihood {
     LinearTessellationLikelihood(const LinearLikelihoodParams & _params) : params(_params) {};
     ~LinearTessellationLikelihood() = default;
     double eval_lpdf(const arma::mat & dist_matrix, const arma::uvec & cluster_allocs, const std::optional<const std::vector<arma::uword>>& centers = std::nullopt) const override;
+    // Getter (needed by the incremental sufficient-statistics cache)
+    const LinearLikelihoodParams & get_params() const { return params; };
 };
 
 /* Extra likelihood parameters for multi-view models */
