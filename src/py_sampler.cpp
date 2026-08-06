@@ -384,27 +384,27 @@ void PYSampler::step(size_t curr_iter,
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "step()" << std::endl; }
     // Jain and Neal (2004) approach: Alternate standard Gibbs scans with Split-Merge proposals
-    // if (curr_iter % 2 == 0) {
-        // this->gibbs_step(gibbs_coupling_cb, gibbs_update_cb);
-    // } else {
-    // Check: if data are too few, you can' do S&M algorithm
-    if (n_data < 2) return;
-    // Sample two random observations
-    std::uniform_int_distribution<int> dist(0, n_data - 1);
-    int obs_i = dist(rng);
-    int obs_j = dist(rng);
-    while(obs_i == obs_j) {
-        obs_j = dist(rng);
-    }
-    // Select the MCMC move
-    if (curr_state.cluster_allocs(obs_i) == curr_state.cluster_allocs(obs_j)) {
-        // Observations in same cluster: try to split it
-        this->split_step(obs_i, obs_j, full_coupling_cb);
+    if (curr_iter % 2 == 0) {
+        this->gibbs_step(gibbs_coupling_cb, gibbs_update_cb);
     } else {
-        // Observations in different clusters: try to merge them
-        this->merge_step(obs_i, obs_j, full_coupling_cb);
+        // Check: if data are too few, you can' do S&M algorithm
+        if (n_data < 2) return;
+        // Sample two random observations
+        std::uniform_int_distribution<int> dist(0, n_data - 1);
+        int obs_i = dist(rng);
+        int obs_j = dist(rng);
+        while(obs_i == obs_j) {
+            obs_j = dist(rng);
+        }
+        // Select the MCMC move
+        if (curr_state.cluster_allocs(obs_i) == curr_state.cluster_allocs(obs_j)) {
+            // Observations in same cluster: try to split it
+            this->split_step(obs_i, obs_j, full_coupling_cb);
+        } else {
+            // Observations in different clusters: try to merge them
+            this->merge_step(obs_i, obs_j, full_coupling_cb);
+        }
     }
-    // }
     // Sample hyperparameters of the PY process
     this->sample_discount(curr_iter);
     this->sample_concentration(curr_iter);
