@@ -8,6 +8,10 @@
 #include <functional>
 #include <chrono>
 #include <unordered_map>
+#include <cmath>
+#include <limits>
+#include <sstream>
+#include <stdexcept>
 
 // Rcpp includes
 #include <RcppArmadillo.h>
@@ -55,9 +59,35 @@ class PYSampler {
     // back to the original full-recompute behaviour, so correctness for
     // unrecognized likelihoods is unaffected.
     std::unique_ptr<QuadraticStatsCache> stats_cache;
-    // Periodic full rebuild to correct floating-point drift from repeated
-    // incremental add/subtract updates. 0 disables periodic rebuilds.
-    size_t rebuild_every = 500;
+    // ---- Adaptive cache-rebuild schedule --------------------------------
+    // A full O(n^2) rebuild corrects the floating-point drift accumulated by
+    // repeated incremental add/subtract updates. Rather than firing on a
+    // guessed fixed interval, the interval is DERIVED from the drift
+    // actually measured at the previous rebuild, which costs nothing: the
+    // pre-rebuild cached_lpdf and the post-rebuild one bracket exactly the
+    // error accumulated since the last one.
+    //
+    // The budget is counted in commit_move() applications, not iterations,
+    // because that is what drift accumulates with: a Gibbs sweep contributes
+    // O(n) updates, a split/merge only O(cluster size).
+    //
+    // Relative error we are willing to carry before forcing a rebuild.
+    double drift_target_rel = 1e-11;
+    // Relative error at which sync_state_lpdf's debug check complains.
+    double drift_warn_rel = 1e-9;
+    // EWMA of measured relative drift PER incremental update. Negative
+    // means "no measurement yet".
+    double drift_rate_ewma = -1.0;
+    double drift_rate_decay = 0.3;      // weight given to the newest measurement
+    // Budget (in updates) until the next rebuild, plus its clamps. All three
+    // are sized from n_data in init(); 0 means "no cache, never rebuild".
+    long long rebuild_budget = 0;
+    long long rebuild_budget_min = 0;
+    long long rebuild_budget_max = 0;
+    // Diagnostics, reported in debug mode.
+    size_t n_rebuilds = 0;
+    size_t n_drift_warnings = 0;
+    double worst_rel_drift = 0.0;
 
   // Public class methods
   public:
@@ -87,6 +117,14 @@ class PYSampler {
 	void sample_concentration(size_t curr_iter);
     // Utilities
     void sync_state_lpdf(bool validate = false);
+	// One-off, UNCONDITIONAL, throwing check that the cache's closed-form
+	// terms encode the same model as likelihood->eval_lpdf(). Run once in
+	// init() against a fresh rebuild: if these disagree, every delta and
+	// every acceptance ratio in the run is built on a false premise.
+	void validate_cache_against_likelihood() const;
+	// Adaptive drift control (see the schedule members above).
+	void maybe_rebuild_cache();
+	void rebuild_cache_and_adapt();
     arma::uvec standardize_allocs(const arma::uvec & allocs) const;
 	// The id_map implied by standardize_allocs (old id -> new id), used to
 	// keep stats_cache's keys in sync when a merge closes an id gap.
