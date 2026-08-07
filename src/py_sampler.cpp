@@ -552,7 +552,7 @@ void PYSampler::step(size_t curr_iter,
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "step()" << std::endl; }
     // Jain and Neal (2004) approach: Alternate standard Gibbs scans with Split-Merge proposals
-    if (curr_iter % 10 == 0) {
+    if (curr_iter % 2 == 0) {
         this->gibbs_step(gibbs_coupling_cb, gibbs_update_cb);
     } else {
         // Check: if data are too few, you can' do S&M algorithm
