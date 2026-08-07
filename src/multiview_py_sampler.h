@@ -7,11 +7,14 @@
 #include <cmath>
 #include <functional>
 #include <chrono>
+#include <sstream>
+#include <stdexcept>
 
 // Rcpp includes
 #include <RcppArmadillo.h>
 #include <progress.hpp>
 #include <gsl/gsl_sf_hyperg.h>
+#include <gsl/gsl_errno.h>
 
 // Local includes
 #include "contingency_tracker.h"
@@ -48,6 +51,12 @@ class MultiViewPYSampler {
   private:
     // Sampler initialization 
     void init();
+    // Maps a Rand index to the coupling ENERGY contributed by one pair of
+    // views. Centralises the degenerate-argument clamping, the GSL call and
+    // its error handling, and -- critically -- the SIGN convention: PYSampler
+    // SUBTRACTS the coupling everywhere, so what it receives must be an
+    // energy (low = views agree), not the log-density that U() gives.
+    double pair_coupling_energy(double rand_index) const;
     // Calculates the conditional coupling using the raw naive math (used for Split/Merge block proposals)
     double compute_conditional_coupling(size_t curr_view, const arma::uvec& target_z) const;
     // Compute current coupling using the tracker variables
