@@ -23,7 +23,7 @@ PYSampler::PYSampler(const arma::mat & _distance_matrix, std::shared_ptr<Abstrac
 MixtureMCMCOutput PYSampler::run() {
     // Initialize the sampler
     this->init();
-    // Deduce retained samples
+    // Deduce retained samples + checks
     if (algo_params.thinning == 0) {
         throw std::invalid_argument("Thinning must be at least 1.");
     }
@@ -55,7 +55,7 @@ MixtureMCMCOutput PYSampler::run() {
         // Check for user interrupt
         if (Progress::check_abort()) {
             Rcpp::Rcout << "\nSampling interrupted by user. Returning available samples..." << "\n";
-            // Truncate matrices to save_idx so you don't return blocks of zeros (Guarded)
+            // Truncate matrices to save_idx so you don't return blocks of zeros (guarded)
             if (save_idx < n_retained) {
                 out.cluster_allocs.shed_rows(save_idx, n_retained - 1);
                 out.n_clust.shed_rows(save_idx, n_retained - 1);
@@ -119,7 +119,7 @@ void PYSampler::init() {
         > 1e-10 * std::max(1.0, distance_matrix.max())) {
         throw std::invalid_argument("PYSampler: distance matrix is not symmetric.");
     }
-    // n_sweeps is used as `n_sweeps - 1`: check accordingly to avoid underflow
+    // n_sweeps is used as `n_sweeps - 1`: check accordingly
     if (algo_params.n_sweeps < 1) {
         throw std::invalid_argument("PYSampler: n_sweeps must be at least 1.");
     }
@@ -145,23 +145,16 @@ void PYSampler::init() {
         curr_state.concentration = py_prior->get_concentration();
     }
     curr_state.lpdf = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs);
-    // Set up the incremental sufficient-statistics cache, if the likelihood
-    // type supports it. Any other likelihood leaves stats_cache == nullptr,
-    // and every call site below falls back to the original full-recompute
-    // behaviour in that case.
+    // Set up the incremental sufficient-statistics cache if the likelihood supports it.
     auto quad_lik = std::dynamic_pointer_cast<QuadraticTessellationLikelihood>(likelihood);
     if (quad_lik) {
         stats_cache = std::make_unique<QuadraticStatsCache>(quad_lik->get_params());
         stats_cache->rebuild(distance_matrix, curr_state.cluster_allocs);
-        // Compare a fresh rebuild against independent implementation.
-        // If fails, something is wrong with the cache.
+        // Cache validation agains independent implementation
         validate_cache_against_likelihood();
-        // The rebuild above is ground truth; no need for the extra eval_lpdf call
+        // The rebuild above is ground truth, no extra eval_lpdf to call.
         sync_state_lpdf(false);
-        // Seed the adaptive rebuild schedule. Budgets are in commit_move
-        // applications: n_data updates is roughly one Gibbs sweep, so the
-        // floor is "never rebuild more than once per sweep" and the ceiling
-        // is ~200 sweeps' worth.
+        // Seed the adaptive rebuild schedule
         rebuild_budget_min = std::max<long long>(1, static_cast<long long>(n_data));
         rebuild_budget_max = 200 * rebuild_budget_min;
         rebuild_budget     = std::min(rebuild_budget_max, 10 * rebuild_budget_min);
@@ -198,27 +191,14 @@ void PYSampler::split_step(int obs_i, int obs_j, FullCouplingCallback full_coupl
             relabel_point(trial.get(), distance_matrix, prop_allocs, m, target_clust, chosen);
         }
     }
-    // Intermediate Gibbs sweeps (t-1 sweeps) - clamped.
+    // Intermediate Gibbs sweeps (t-1 sweeps), clamped
     const int n_extra_sweeps = std::max(0, static_cast<int>(algo_params.n_sweeps) - 1);
     for (int s = 0; s < n_extra_sweeps; ++s) {
         restricted_gibbs_sweep(prop_allocs, members, obs_i, obs_j, target_clust, new_clust_id, true, prop_allocs, curr_state.lpdf, trial.get());
     }
     // Final sweep to accumulate proposal probability
     double log_q_split = restricted_gibbs_sweep(prop_allocs, members, obs_i, obs_j, target_clust, new_clust_id, true, prop_allocs, curr_state.lpdf, trial.get());
-    // NO standardization here, deliberately. A split cannot break id
-    // contiguity: entering the step the ids are 0..K-1, new_clust_id is
-    // exactly K, target_clust keeps obs_i and the new cluster keeps obs_j
-    // (both are pinned -- every restricted sweep skips them), and no other
-    // cluster is touched. So prop_allocs already uses exactly 0..K, and
-    // standardize_allocs / standardize_id_map / remap_ids would all be the
-    // identity -- three O(n log n) sorts, an O(n) copy and an O(K^2) rehash
-    // of the cache maps for nothing. For a 2-member cluster the restricted
-    // sweeps move no points at all, so that bookkeeping was 100% of the cost
-    // of the step.
-    //
-    // Complete proposal. prop_n_clust is K+1 by the same argument, so the
-    // arma::unique that used to compute it was buying a number we already
-    // have.
+    // No standardization here, deliberately. Safe by construction
     int prop_n_clust = curr_state.n_clust + 1;
     if (algo_params.debug) {
         // The invariant the above rests on, checked where it is cheap to.
@@ -270,16 +250,8 @@ void PYSampler::merge_step(int obs_i, int obs_j, FullCouplingCallback full_coupl
     arma::uvec members_j = arma::find(prop_allocs == clust_j);
     // Generate merge proposal
     prop_allocs.elem(members_j).fill(clust_i);
-    // NO standardization here. `prop_allocs` carries a hole at clust_j, but
-    // PYFixedPrior::eval_lpdf tolerates it: n_clust counts only 0->1 size
-    // transitions and the EPPF loop is guarded by `if (n_c > 0)`, so an
-    // absent label contributes neither a (theta + i*d) factor nor a
-    // Gamma(n_c - d) one. Relabeling is therefore deferred to the acceptance
-    // branch, where it is actually needed to close the id gap -- most merge
-    // proposals are rejected, and those now pay nothing for it.
-    //
-    // A merge always empties exactly one cluster (clust_j) and leaves clust_i
-    // non-empty, so the count is known -- no arma::unique needed either.
+    // NO standardization here. We can tolerate absent labels.
+    // Relabeling is therefore deferred to the acceptance branch, where it is actually needed,
     int prop_n_clust = curr_state.n_clust - 1;
     // Scoped trial cache scoring the actual merge itself (clust_j's members
     // reassigned to clust_i). This one -- and ONLY this one -- gets folded
@@ -296,43 +268,23 @@ void PYSampler::merge_step(int obs_i, int obs_j, FullCouplingCallback full_coupl
         }
         prop_lpdf = curr_state.lpdf + merge_trial->delta_lpdf();
     } else {
-        // The likelihood is a function of the PARTITION, not of the labels,
-        // so the gapped prop_allocs gives an identical value.
         prop_lpdf = likelihood->eval_lpdf(distance_matrix, prop_allocs);
     }
     // Evaluate couplings (only if this class is used in multi-view extension)
     double curr_coupling = full_coupling_cb ? full_coupling_cb(curr_state.cluster_allocs) : 0.0;
-    // The coupling callback is user-supplied, so we cannot assume it is
-    // label-invariant the way the prior and the likelihood provably are:
-    // hand it the standardized labeling exactly as before. Built lazily, so
-    // the single-view path (no callback) still skips the relabel entirely.
     double prop_coupling = full_coupling_cb ? full_coupling_cb(standardize_allocs(prop_allocs)) : 0.0;
     // Compute reverse probability (splitting the merged state back into exact curr_state).
-    // This scoring must see the ALREADY-MERGED stats (clust_j's members now
-    // under clust_i), so `reverse_trial` is layered ON TOP OF `merge_trial`
-    // (falls back to it, which falls back to the persistent cache) rather
-    // than seeded fresh from the persistent cache directly. It is NEVER
-    // folded into anything -- it only scores a counterfactual reverse move
-    // on a throwaway `dummy_allocs` copy, discarded regardless of outcome.
     arma::uvec merged_members = arma::find(prop_allocs == clust_i);
     arma::uvec dummy_allocs = prop_allocs;
     std::unique_ptr<QuadraticStatsTrialCache> reverse_trial;
     if (stats_cache) {
         // Explicit base cast: layers a FRESH overlay on top of merge_trial
-        // (reads chain merge_trial -> stats_cache through the virtual
-        // accessors) so this trial's delta_lpdf() is measured relative to
-        // the merged state, not relative to the pre-merge cache. Without
-        // the cast this selected the copy constructor and double-counted
-        // the merge delta -- harmless only because it cancelled in the
-        // sweep's log-sum-exp normalisation.
         reverse_trial = std::make_unique<QuadraticStatsTrialCache>(
             static_cast<const QuadraticStatsCache &>(*merge_trial));
     }
     dummy_allocs(obs_i) = clust_i;
     relabel_point(reverse_trial.get(), distance_matrix, dummy_allocs, obs_j, clust_i, clust_j);
-    // Initial random split (launch-state construction -- see split_step for
-    // why its probability is intentionally excluded from log_q_split_rev,
-    // while its STATE effect must still be threaded through reverse_trial).
+    // Initial random split (launch-state construction
     std::uniform_real_distribution<double> runif(0.0, 1.0);
     for (size_t idx = 0; idx < merged_members.n_elem; ++idx) {
         int m = merged_members(idx);
@@ -349,10 +301,7 @@ void PYSampler::merge_step(int obs_i, int obs_j, FullCouplingCallback full_coupl
     // non-quadratic likelihood.
     const double merged_base_lpdf = curr_state.lpdf
                                   + (merge_trial ? merge_trial->delta_lpdf() : 0.0);
-    // Intermediate sweeps (t-1 sweeps)
-    // Signed, clamped: `algo_params.n_sweeps - 1` on an unsigned field with
-    // n_sweeps == 0 wraps, and `int s < unsigned` then promotes s, spinning
-    // the loop ~2^32 times. init() rejects n_sweeps < 1, this is the belt.
+    // Intermediate sweeps (t-1 sweeps), clamped
     const int n_extra_sweeps = std::max(0, static_cast<int>(algo_params.n_sweeps) - 1);
     for (int s = 0; s < n_extra_sweeps; ++s) {
         restricted_gibbs_sweep(dummy_allocs, merged_members, obs_i, obs_j, clust_i, clust_j, true, dummy_allocs, merged_base_lpdf, reverse_trial.get());
@@ -382,7 +331,7 @@ void PYSampler::merge_step(int obs_i, int obs_j, FullCouplingCallback full_coupl
     } else {
         if (algo_params.debug) { Rcpp::Rcout << "Merge rejected" << std::endl;}
     }
-    // Drift control anche cache rebuild
+    // Drift control and cache rebuild
     maybe_rebuild_cache();
     // Debug log
     if (algo_params.debug) { curr_state.print(); }
@@ -501,11 +450,10 @@ void PYSampler::gibbs_step(GibbsCouplingCallback gibbs_coupling_cb,
         stats_cache->remap_ids(standardize_id_map(curr_state.cluster_allocs));
     }
     curr_state.cluster_allocs = standardize_allocs(curr_state.cluster_allocs);
-    // K_minus_i is maintained exactly across the sweep.
-    // Once the last point is placed it is the number of active clusters
+    // K_minus_i is maintained exactly across the sweep
     curr_state.n_clust = K_minus_i;
     sync_state_lpdf(algo_params.debug);
-    // Drift control and rebuild cache accordingly
+    // Drift control and cache rebuild
     maybe_rebuild_cache();
     // Debug log
     if (algo_params.debug) { curr_state.print(); }
@@ -628,7 +576,7 @@ void PYSampler::step(size_t curr_iter,
     // Sample hyperparameters of the PY process
     this->sample_discount(curr_iter);
     this->sample_concentration(curr_iter);
-    // Drift control is deferred to the individual steps.
+    // NOTE: drift control deferred to each step
 };
 
 // Relative difference between two log-densities, guarded against the
@@ -636,7 +584,7 @@ void PYSampler::step(size_t curr_iter,
 static inline double rel_diff(double a, double b) {
     const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
     return std::fabs(a - b) / scale;
-};
+}
 
 void PYSampler::sync_state_lpdf(bool validate) {
     if (!stats_cache) {
@@ -647,17 +595,15 @@ void PYSampler::sync_state_lpdf(bool validate) {
     curr_state.lpdf = stats_cache->current_lpdf();
     if (!validate) return;
 
-    // Debug-only drift check. RELATIVE, not absolute.
+    // Debug-only drift check. RELATIVE, not absolute
     const double full_lpdf = likelihood->eval_lpdf(distance_matrix, curr_state.cluster_allocs);
     const double rel = rel_diff(full_lpdf, curr_state.lpdf);
     if (rel > drift_warn_rel) {
         ++n_drift_warnings;
         if (n_drift_warnings <= 5) {
             Rcpp::Rcout << "Warning: cached log-density deviates from full recomputation by "
-                << std::fabs(full_lpdf - curr_state.lpdf) << " (relative " << rel << ")";
-            if (n_drift_warnings == 5) {
-                Rcpp::Rcout << " [further warnings suppressed]";
-            }
+                        << std::fabs(full_lpdf - curr_state.lpdf) << " (relative " << rel << ")";
+            if (n_drift_warnings == 5) Rcpp::Rcout << " [further warnings suppressed]";
             Rcpp::Rcout << std::endl;
         }
         // Repair rather than carry on with a source of truth we have just
@@ -698,12 +644,10 @@ void PYSampler::maybe_rebuild_cache() {
 }
 
 void PYSampler::rebuild_cache_and_adapt() {
-    const long long ops = std::max<long long>(1, stats_cache->updates_since_rebuild());
-    const double before = stats_cache->current_lpdf();
-    // Structural audit before the rebuild erases the evidence. The scalar
-    // lpdf cannot see a desync between the cache's KEYS and the current
-    // cluster ids -- a wiped or mis-remapped cache can still report a
-    // plausible total. n_pairs is an integer, so this comparison is exact.
+    const long long ops    = std::max<long long>(1, stats_cache->updates_since_rebuild());
+    const double    before = stats_cache->current_lpdf();
+
+    // Structural audit BEFORE the rebuild erases the evidence
     if (algo_params.debug) {
         const CacheAudit rep = stats_cache->audit(distance_matrix, curr_state.cluster_allocs);
         if (!rep.ok) {
@@ -727,7 +671,7 @@ void PYSampler::rebuild_cache_and_adapt() {
 
     stats_cache->rebuild(distance_matrix, curr_state.cluster_allocs);
     const double after = stats_cache->current_lpdf();
-    // The rebuild IS ground truth for the cache, so no extra eval_lpdf here.
+    // The rebuild is ground truth for the cache
     sync_state_lpdf(false);
 
     // Drift measured for free: `before` carried `ops` incremental updates of

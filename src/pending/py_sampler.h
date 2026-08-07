@@ -106,6 +106,8 @@ class PYSampler {
     MixtureMCMCOutput run();
     // Getters for results
     MixtureState get_current_state() const { return curr_state; }
+    // Overrides the seed used by init(). Needed in case of multi-view extensions
+    void set_random_seed(unsigned int seed) { algo_params.random_seed = seed; }
 
   // Private class methods
   private:
