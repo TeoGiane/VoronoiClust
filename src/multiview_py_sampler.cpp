@@ -23,9 +23,7 @@ double MultiViewPYSampler::pair_coupling_energy(double rand_index) const {
     if (ri > RI_CEIL) ri = RI_CEIL;
     const double dist_val = (1.0 / ri) - 1.0;
 
-    // The _e10_ variant returns val * 10^e10, so an extreme argument cannot
-    // silently underflow to 0 and turn log(U) into -inf. (U(a,b,x) ~ x^-a for
-    // large x, which underflows a plain double once a is moderately large.)
+    // Safer GSL error handling.
     gsl_sf_result_e10 res;
     const int status = gsl_sf_hyperg_U_e10_e(coupling_params.strength_alpha,
                                              1.0 - coupling_params.strength_beta,
@@ -38,26 +36,14 @@ double MultiViewPYSampler::pair_coupling_energy(double rand_index) const {
         throw std::runtime_error(msg.str());
     }
     const double log_U = std::log(res.val) + res.e10 * LN10;
-
-    // NEGATED. `coupling_log_const + log(U(dist))` is a log-DENSITY: U is
-    // decreasing in its argument and dist_val is decreasing in agreement, so
-    // that quantity is LARGE when views agree. PYSampler subtracts whatever
-    // the callbacks return (`lp = ... - coupling_penalty`, and
-    // `(prop_lpdf - prop_coupling) - (curr_lpdf - curr_coupling)`), so
-    // handing it the raw log-density would reward DISagreement and drive the
-    // views apart. Negating here makes it an energy and leaves PYSampler's
-    // convention -- and its already-reviewed acceptance ratios -- untouched.
+    // Return the negative log, so that we are in energy space.
     return -(coupling_log_const + log_U);
 };
 
 MultiViewMixtureMCMCOutput MultiViewPYSampler::run() {
     // Initialize the sampler
     this->init();
-    // Deduce retained samples. Compare BEFORE subtracting (unsigned fields
-    // wrap), and take the CEILING: samples land at i = burnin, burnin+thinning,
-    // ... <= iterations-1, so flooring under-allocates by one row whenever
-    // thinning does not divide the post-burnin range and the final store runs
-    // off the end of every output buffer.
+    // Deduce retained samples.
     if (algo_params.thinning == 0) {
         throw std::invalid_argument("Thinning must be at least 1.");
     }
@@ -92,11 +78,8 @@ MultiViewMixtureMCMCOutput MultiViewPYSampler::run() {
     // Main MCMC loop
     for (size_t i = 0; i < algo_params.iterations; ++i) {
         if (Progress::check_abort()) {
-            // Check for user interrupt
+            // Check for user interrupt (guarded)
             Rcpp::Rcout << "\nSampling interrupted by user. Returning available samples..." << "\n";
-            // Guarded: with every slot already filled there is nothing to
-            // shed, and shed_rows(n, n-1) has first > last, which Armadillo
-            // rejects.
             if (save_idx < n_retained) {
                 for (size_t v = 0; v < n_views; ++v) {
                     out.views[v].cluster_allocs.shed_rows(save_idx, n_retained - 1);
@@ -142,9 +125,7 @@ MultiViewMixtureMCMCOutput MultiViewPYSampler::run() {
 void MultiViewPYSampler::init() {
     // Debug log
     if (algo_params.debug) { Rcpp::Rcout << "init()" << std::endl; }
-    // GSL's DEFAULT error handler calls abort(), which would kill the entire
-    // R session rather than raising a catchable condition. Turn it off once,
-    // up front; pair_coupling_energy() checks every return status by hand.
+    // Avoid GSL's default error handler calling abort() on domain errors. (No R session Kill)
     gsl_set_error_handler_off();
     // Initialize RNG
     rng.seed(algo_params.random_seed);
@@ -153,11 +134,7 @@ void MultiViewPYSampler::init() {
     if (n_views == 0) {
         throw std::invalid_argument("At least one view must be provided.");
     }
-    // Initialize states in each view, each on its OWN random stream. Sharing
-    // algo_params.random_seed across views made every view draw an identical
-    // initial allocation (Rand index exactly 1 -> coupling distance 0 -> GSL
-    // domain error on the very first compute_total_coupling()) and then
-    // propose the same split-merge candidate pair at every iteration.
+    // Initialize states in each view, each on its OWN random stream.
     for (size_t v = 0; v < n_views; ++v) {
         model_in_view[v]->set_random_seed(
             algo_params.random_seed + static_cast<unsigned int>(v) * 7919u + 1u);
