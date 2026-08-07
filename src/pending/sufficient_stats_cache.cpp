@@ -43,7 +43,7 @@ void QuadraticStatsCache::rebuild(const arma::mat& dist_matrix, const arma::uvec
     for (size_t i = 0; i < n; ++i) {
         for (size_t j = i + 1; j < n; ++j) {
             double d = dist_matrix(i, j);
-            if (d <= 0.0) continue;
+            if (!(d > 0.0)) continue;   // NaN-safe: `d <= 0.0` is FALSE for NaN
             int ci = allocs(i), cj = allocs(j);
             double log_d = std::log(d);
             if (ci == cj) {
@@ -58,6 +58,74 @@ void QuadraticStatsCache::rebuild(const arma::mat& dist_matrix, const arma::uvec
     cached_lpdf = 0.0;
     for (const auto& kv : within_stats)  cached_lpdf += f_within(kv.second);
     for (const auto& kv : between_stats) cached_lpdf += f_between(kv.second);
+    // These numbers are now exact by construction: drift restarts from zero.
+    update_count = 0;
+}
+
+CacheAudit QuadraticStatsCache::audit(const arma::mat& dist_matrix, const arma::uvec& allocs) const {
+    CacheAudit rep;
+
+    // Ground truth: a fresh cache built from the raw distance matrix.
+    QuadraticStatsCache ref(params);
+    ref.rebuild(dist_matrix, allocs);
+
+    auto rel_err = [](double a, double b) {
+        const double s = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+        return std::fabs(a - b) / s;
+    };
+    // Tolerance for the floating-point accumulators only. n_pairs is
+    // compared exactly -- any difference there is a logic error, never
+    // round-off.
+    const double sum_tol = 1e-9;
+
+    // ---- within-cluster stats -------------------------------------------
+    // Walk the UNION of key sets: an id present in only one of the two maps
+    // is a mismatch unless it is zero on both sides (an emptied cluster may
+    // legitimately linger in the cache with n_pairs == 0, and f() maps that
+    // to exactly 0.0).
+    {
+        std::unordered_set<int> keys;
+        for (const auto& kv : ref.within_stats) keys.insert(kv.first);
+        for (const auto& kv : within_stats)     keys.insert(kv.first);
+        for (int k : keys) {
+            const PairStat a = get_within(k);       // virtual: trial-aware
+            const PairStat b = ref.get_within(k);
+            if (a.n_pairs == 0 && b.n_pairs == 0) continue;
+            const long   dn = a.n_pairs - b.n_pairs;
+            const double rd = rel_err(a.sum_d, b.sum_d);
+            if (dn != 0 || rd > sum_tol) {
+                ++rep.within_mismatches;
+                if (rep.first_bad_cluster < 0) rep.first_bad_cluster = k;
+                if (std::labs(dn) > std::labs(rep.worst_n_pairs_delta)) rep.worst_n_pairs_delta = dn;
+                rep.worst_rel_sum_d = std::max(rep.worst_rel_sum_d, rd);
+            }
+        }
+    }
+
+    // ---- between-cluster stats ------------------------------------------
+    if (params.repulsion) {
+        std::unordered_set<uint64_t> keys;
+        for (const auto& kv : ref.between_stats) keys.insert(kv.first);
+        for (const auto& kv : between_stats)     keys.insert(kv.first);
+        for (uint64_t key : keys) {
+            const auto pr = unpack_pair_key(key);
+            const PairStat a = get_between(pr.first, pr.second);
+            const PairStat b = ref.get_between(pr.first, pr.second);
+            if (a.n_pairs == 0 && b.n_pairs == 0) continue;
+            const long   dn = a.n_pairs - b.n_pairs;
+            const double rd = rel_err(a.sum_d, b.sum_d);
+            if (dn != 0 || rd > sum_tol) {
+                ++rep.between_mismatches;
+                if (rep.first_bad_pair_a < 0) { rep.first_bad_pair_a = pr.first; rep.first_bad_pair_b = pr.second; }
+                if (std::labs(dn) > std::labs(rep.worst_n_pairs_delta)) rep.worst_n_pairs_delta = dn;
+                rep.worst_rel_sum_d = std::max(rep.worst_rel_sum_d, rd);
+            }
+        }
+    }
+
+    rep.lpdf_rel_diff = rel_err(cached_lpdf, ref.current_lpdf());
+    rep.ok = (rep.within_mismatches == 0 && rep.between_mismatches == 0 && rep.lpdf_rel_diff <= sum_tol);
+    return rep;
 }
 
 ClusterAggMap QuadraticStatsCache::point_to_clusters(const arma::mat& dist_matrix, const arma::uvec& allocs, arma::uword m) const {
@@ -65,7 +133,7 @@ ClusterAggMap QuadraticStatsCache::point_to_clusters(const arma::mat& dist_matri
     for (arma::uword x = 0; x < allocs.n_elem; ++x) {
         if (x == m) continue;
         double d = dist_matrix(m, x);
-        if (d <= 0.0) continue;
+        if (!(d > 0.0)) continue;   // NaN-safe: `d <= 0.0` is FALSE for NaN
         PairStat& s = agg[allocs(x)];
         s.n_pairs++; s.sum_d += d; s.sum_log_d += std::log(d);
     }
@@ -110,6 +178,7 @@ double QuadraticStatsCache::eval_move_delta(const ClusterAggMap& agg, int from, 
 
 void QuadraticStatsCache::commit_move(const ClusterAggMap& agg, int from, int to) {
     if (from == to) return;
+    ++update_count;   // drift accumulator: see updates_since_rebuild()
     auto it_f = agg.find(from);
     auto it_t = agg.find(to);
     PairStat d_mf = (it_f != agg.end()) ? it_f->second : PairStat{};
@@ -203,6 +272,9 @@ void QuadraticStatsTrialCache::fold_into(QuadraticStatsCache& target) const {
         target.put_between(a, b, kv.second);
     }
     target.adjust_lpdf(cached_lpdf);
+    // The trial's commits are what produced the delta we just folded, so
+    // the target inherits their contribution to accumulated drift.
+    target.add_updates(update_count);
 }
 
 /* ================================ Linear ================================ */
@@ -233,7 +305,7 @@ void LinearStatsCache::rebuild(const arma::mat& dist_matrix, const arma::uvec& a
         arma::uword centre_idx = allocs(i);
         if (centre_idx == i) continue; // i is itself a centre: no self-pair
         double d = dist_matrix(centre_idx, i);
-        if (d <= 0.0) continue;
+        if (!(d > 0.0)) continue;   // NaN-safe: `d <= 0.0` is FALSE for NaN
         PairStat& s = within_stats[static_cast<int>(centre_idx)];
         s.n_pairs++; s.sum_d += d; s.sum_log_d += std::log(d);
     }
@@ -245,7 +317,7 @@ void LinearStatsCache::rebuild(const arma::mat& dist_matrix, const arma::uvec& a
 void LinearStatsCache::add_point(const arma::mat& dist_matrix, arma::uword point_idx, int cluster_id, arma::uword centre_idx) {
     if (point_idx == centre_idx) return;
     double d = dist_matrix(centre_idx, point_idx);
-    if (d <= 0.0) return;
+    if (!(d > 0.0)) return;     // NaN-safe: `d <= 0.0` is FALSE for NaN
     PairStat s = within_stats.count(cluster_id) ? within_stats[cluster_id] : PairStat{};
     cached_lpdf -= f_within(s);
     s.n_pairs++; s.sum_d += d; s.sum_log_d += std::log(d);
@@ -256,7 +328,7 @@ void LinearStatsCache::add_point(const arma::mat& dist_matrix, arma::uword point
 void LinearStatsCache::remove_point(const arma::mat& dist_matrix, arma::uword point_idx, int cluster_id, arma::uword centre_idx) {
     if (point_idx == centre_idx) return;
     double d = dist_matrix(centre_idx, point_idx);
-    if (d <= 0.0) return;
+    if (!(d > 0.0)) return;     // NaN-safe: `d <= 0.0` is FALSE for NaN
     PairStat s = within_stats.count(cluster_id) ? within_stats[cluster_id] : PairStat{};
     cached_lpdf -= f_within(s);
     s.n_pairs--; s.sum_d -= d; s.sum_log_d -= std::log(d);
@@ -273,7 +345,7 @@ void LinearStatsCache::recompute_between(const arma::mat& dist_matrix, const std
         for (size_t a = 0; a < centres.size(); ++a) {
             for (size_t b = a + 1; b < centres.size(); ++b) {
                 double d = dist_matrix(centres[a], centres[b]);
-                if (d <= 0.0) continue;
+                if (!(d > 0.0)) continue;   // NaN-safe: `d <= 0.0` is FALSE for NaN
                 sum_d += d; sum_log_d += std::log(d); n_pairs++;
             }
         }

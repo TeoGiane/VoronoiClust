@@ -2,9 +2,13 @@
 
 // Standard library includes
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <cstdint>
 #include <utility>
+#include <algorithm>
+#include <cmath>
+#include <limits>
 
 // Rcpp includes
 #include <RcppArmadillo.h>
@@ -58,6 +62,24 @@ struct PairStat {
 // bucketed by the CURRENT label of the other endpoint. Cluster id -> stat.
 using ClusterAggMap = std::unordered_map<int, PairStat>;
 
+// Result of a STRUCTURAL audit of a cache against a from-scratch rebuild.
+// The scalar lpdf is a lossy projection of the cache state: a cache whose
+// KEYS have desynced from the current cluster ids can still report a
+// numerically plausible total. `n_pairs` is an integer, so comparing it
+// entry-by-entry is exact and catches key desync and unbalanced
+// add/subtract on the iteration they happen, with no tolerance to tune.
+struct CacheAudit {
+    bool   ok                   = true;
+    size_t within_mismatches    = 0;   // cluster ids whose within-stat differs
+    size_t between_mismatches   = 0;   // cluster pairs whose between-stat differs
+    long   worst_n_pairs_delta  = 0;   // signed, cache minus reference (EXACT)
+    double worst_rel_sum_d      = 0.0; // worst relative error on a sum_d
+    double lpdf_rel_diff        = 0.0; // relative error on the cached total
+    int    first_bad_cluster    = -1;  // -1 when no within mismatch
+    int    first_bad_pair_a     = -1;  // -1 when no between mismatch
+    int    first_bad_pair_b     = -1;
+};
+
 inline uint64_t pack_pair_key(int a, int b) {
     if (a > b) std::swap(a, b);
     return (static_cast<uint64_t>(static_cast<uint32_t>(a)) << 32) | static_cast<uint32_t>(b);
@@ -75,6 +97,13 @@ class QuadraticStatsCache {
     double cached_lpdf = 0.0;
     std::unordered_map<int, PairStat> within_stats;
     std::unordered_map<uint64_t, PairStat> between_stats;
+    // Number of incremental commit_move() applications folded into the
+    // current numbers since the last rebuild(). This -- not the iteration
+    // counter -- is what floating-point drift actually accumulates with:
+    // one Gibbs sweep contributes O(n) updates while a split/merge
+    // contributes only O(cluster size). Drives the adaptive rebuild
+    // schedule in PYSampler.
+    long long update_count = 0;
 
     double f_within(const PairStat& s) const;
     double f_between(const PairStat& s) const;
@@ -110,6 +139,18 @@ class QuadraticStatsCache {
     double current_lpdf() const { return cached_lpdf; }
     void adjust_lpdf(double delta) { cached_lpdf += delta; }
     const QuadraticLikelihoodParams& get_params() const { return params; }
+
+    // Incremental updates applied since the last rebuild(). rebuild()
+    // resets it to 0; fold_into() transfers the trial's count to the
+    // target, since the trial's commits are what produced the folded delta.
+    long long updates_since_rebuild() const { return update_count; }
+    void add_updates(long long n) { update_count += n; }
+
+    // O(n^2) + one temporary cache: rebuild a reference from `allocs` and
+    // compare this cache to it ENTRY BY ENTRY, not just on the total. Does
+    // not mutate this cache. Intended for debug-mode use at rebuild points;
+    // see CacheAudit above for why the scalar lpdf check is insufficient.
+    CacheAudit audit(const arma::mat& dist_matrix, const arma::uvec& allocs) const;
 
     // O(n): point m's aggregate distance stats to every cluster currently
     // present in `allocs` (bucketed by CURRENT label, excludes m itself).
@@ -152,6 +193,22 @@ class QuadraticStatsTrialCache : public QuadraticStatsCache {
     // put_within / put_between: inherited (write to this object's own maps).
 
     explicit QuadraticStatsTrialCache(const QuadraticStatsCache& base_cache);
+
+    // NOT copyable. The implicitly generated copy constructor was an exact
+    // match for `QuadraticStatsTrialCache(*some_trial)` and therefore BEAT
+    // the converting constructor above (which needs a derived-to-base
+    // conversion), silently producing a copy -- pre-loaded with the source's
+    // entries, its accumulated delta and its update count, and pointing at
+    // the source's base -- where a fresh overlay LAYERED ON the source was
+    // intended. To layer on another trial, pass it as the base explicitly:
+    //
+    //   QuadraticStatsTrialCache t(static_cast<const QuadraticStatsCache&>(other));
+    //
+    // get_within/get_between are virtual, so reads still chain correctly
+    // through the base reference. (A reference member already deletes copy
+    // ASSIGNMENT; only construction needed suppressing.)
+    QuadraticStatsTrialCache(const QuadraticStatsTrialCache&) = delete;
+    QuadraticStatsTrialCache& operator=(const QuadraticStatsTrialCache&) = delete;
 
     // Total lpdf delta accumulated by this trial relative to `base`.
     double delta_lpdf() const { return cached_lpdf; }
