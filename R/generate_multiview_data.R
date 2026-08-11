@@ -54,28 +54,30 @@ generate_multiview_data <- function(n_obs, n_vars = 1, n_clusters = 2, n_views =
   # 2. Generate cluster assignments for all views (Star Topology linked to View 1)
   clusts_list <- vector("list", n_views)
   clusts_list[[1]] <- base_clusters
-
-  for (v in 2:n_views) {
-    # 2a. Determine the exact number of objects to keep identical based on floor()
-    n_keep <- floor(n_obs * agreement_rate[v - 1])
-
-    # 2b. Randomly select WHICH exact objects keep their assignment
-    keep_idx <- sample(1:n_obs, size = n_keep, replace = FALSE)
-
-    clusts_v <- rep(0, n_obs)
-
-    # Assign the retained clusters
-    if (n_keep > 0) {
-      clusts_v[keep_idx] <- base_clusters[keep_idx]
+  
+  if (n_views >= 2) {
+    for (v in 2:n_views) {
+      # 2a. Determine the exact number of objects to keep identical based on floor()
+      n_keep <- floor(n_obs * agreement_rate[v - 1])
+  
+      # 2b. Randomly select WHICH exact objects keep their assignment
+      keep_idx <- sample(1:n_obs, size = n_keep, replace = FALSE)
+  
+      clusts_v <- rep(0, n_obs)
+  
+      # Assign the retained clusters
+      if (n_keep > 0) {
+        clusts_v[keep_idx] <- base_clusters[keep_idx]
+      }
+  
+      # 2c. For the remaining objects, assign a random permutation of the REMAINING labels.
+      change_idx <- setdiff(1:n_obs, keep_idx)
+      if (length(change_idx) > 0) {
+        clusts_v[change_idx] <- sample(base_clusters[change_idx], replace = FALSE)
+      }
+  
+      clusts_list[[v]] <- clusts_v
     }
-
-    # 2c. For the remaining objects, assign a random permutation of the REMAINING labels.
-    change_idx <- setdiff(1:n_obs, keep_idx)
-    if (length(change_idx) > 0) {
-      clusts_v[change_idx] <- sample(base_clusters[change_idx], replace = FALSE)
-    }
-
-    clusts_list[[v]] <- clusts_v
   }
 
   # 3. Define cluster centres (orthogonal vectors in 'n_vars' space)
