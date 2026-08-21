@@ -10,7 +10,6 @@
 #'
 #' @return A list of likelihood parameters in the format required by \code{mcmc_tessellation} and \code{mcmc_PY}. See \code{\link{likelihood_params}}.
 #' @export
-#' @importFrom fastkmedoids fastpam
 compute_EB_params <- function(distance_matrix, n_clusters, initial_allocs = NULL, linear = FALSE, repulsion = TRUE){
   if(linear){
     return(compute_EB_params_linear(D = distance_matrix, K = n_clusters, k2 = initial_allocs, repulsion = repulsion))
