@@ -1,6 +1,7 @@
 # Folders to ignore
 .Rproj.user/
 .old/
+R/pending/
 
 # Files to ignore
 *.o
