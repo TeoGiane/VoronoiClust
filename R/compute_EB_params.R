@@ -29,11 +29,14 @@ compute_EB_params <- function(distance_matrix, n_clusters, initial_allocs = NULL
 #' @keywords internal
 compute_EB_params_linear <- function(D, K, k2 = NULL, repulsion = TRUE) {
   n <- nrow(D)
-  if(is.null(k2)){
-    medoidsfit <- fastkmedoids::fastpam(D, n, K)
-    k2         <- medoidsfit@assignment
-    medoids    <- medoidsfit@medoids + 1        #they are using C++
-  }else{
+  if(is.null(k2)) {
+    medoidsfit <- cluster::clara(D, K)
+    k2 <- medoidsfit$clustering
+    medoids <- medoidsfit$i.med
+    # medoidsfit <- fastkmedoids::fastpam(D, n, K)
+    # k2         <- medoidsfit@assignment
+    # medoids    <- medoidsfit@medoids + 1        #they are using C++
+  } else {
     r_D                 <- rowSums(D)
     names(r_D)          <- 1:n
     k2_unique           <- unique(k2)
@@ -86,8 +89,10 @@ compute_EB_params_linear <- function(D, K, k2 = NULL, repulsion = TRUE) {
 compute_EB_params_quadratic <- function(D, K, k2 = NULL, repulsion = TRUE) {
   n <- nrow(D)
   if(is.null(k2)){
-    medoidsfit <- fastkmedoids::fastpam(D, n, K)
-    k2         <- medoidsfit@assignment
+    medoidsfit <- cluster::clara(D, K)
+    k2 <- medoidsfit$clustering
+    # medoidsfit <- fastkmedoids::fastpam(D, n, K)
+    # k2         <- medoidsfit@assignment
   }
 
   sel1 = outer(k2,k2, function(x,y) x==y) & upper.tri(diag(length(k2)))
