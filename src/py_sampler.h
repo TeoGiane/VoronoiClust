@@ -114,28 +114,28 @@ class PYSampler {
     // MCMC Steps
     void split_step(int obs_i, int obs_j, FullCouplingCallback full_coupling_cb = nullptr);
     void merge_step(int obs_i, int obs_j, FullCouplingCallback full_coupling_cb = nullptr);
-	void gibbs_step(GibbsCouplingCallback gibbs_coupling_cb = nullptr, GibbsUpdateCallback gibbs_update_cb = nullptr);
-	void sample_discount(size_t curr_iter);
-	void sample_concentration(size_t curr_iter);
+    void gibbs_step(GibbsCouplingCallback gibbs_coupling_cb = nullptr, GibbsUpdateCallback gibbs_update_cb = nullptr);
+    void sample_discount(size_t curr_iter);
+    void sample_concentration(size_t curr_iter);
     // Utilities
     void sync_state_lpdf(bool validate = false);
-	// One-off, UNCONDITIONAL, throwing check that the cache's closed-form
-	// terms encode the same model as likelihood->eval_lpdf(). Run once in
-	// init() against a fresh rebuild: if these disagree, every delta and
-	// every acceptance ratio in the run is built on a false premise.
-	void validate_cache_against_likelihood() const;
-	// Adaptive drift control (see the schedule members above).
-	void maybe_rebuild_cache();
-	void rebuild_cache_and_adapt();
+    // One-off, UNCONDITIONAL, throwing check that the cache's closed-form
+    // terms encode the same model as likelihood->eval_lpdf(). Run once in
+    // init() against a fresh rebuild: if these disagree, every delta and
+    // every acceptance ratio in the run is built on a false premise.
+    void validate_cache_against_likelihood() const;
+    // Adaptive drift control (see the schedule members above).
+    void maybe_rebuild_cache();
+    void rebuild_cache_and_adapt();
     arma::uvec standardize_allocs(const arma::uvec & allocs) const;
-	// The id_map implied by standardize_allocs (old id -> new id), used to
-	// keep stats_cache's keys in sync when a merge closes an id gap.
-	std::unordered_map<int,int> standardize_id_map(const arma::uvec & allocs) const;
-	double restricted_gibbs_sweep(arma::uvec & allocs, const arma::uvec & members,
-								  unsigned int obs_i, unsigned int obs_j,
-								  unsigned int clust_i, unsigned int clust_j,
-								  bool sample, const arma::uvec & target_allocs,
-								  double base_lpdf,
-								  QuadraticStatsTrialCache * trial_cache = nullptr);
+    // The id_map implied by standardize_allocs (old id -> new id), used to
+    // keep stats_cache's keys in sync when a merge closes an id gap.
+    std::unordered_map<int,int> standardize_id_map(const arma::uvec & allocs) const;
+    double restricted_gibbs_sweep(arma::uvec & allocs, const arma::uvec & members,
+                    unsigned int obs_i, unsigned int obs_j,
+                    unsigned int clust_i, unsigned int clust_j,
+                    bool sample, const arma::uvec & target_allocs,
+                    double base_lpdf,
+                    QuadraticStatsTrialCache * trial_cache = nullptr);
 
 };
