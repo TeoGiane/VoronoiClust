@@ -6,6 +6,8 @@
 #include <random>
 #include <chrono>
 #include <utility>
+#include <cmath>
+#include <limits>
 
 // Rcpp includes
 #include <RcppArmadillo.h>
@@ -57,8 +59,28 @@ class VoronoiSampler {
     // centre, kept in sync alongside cache_id_allocs. Lets "would point x
     // prefer this candidate centre instead" be an O(1) check.
     arma::vec dist_to_own_centre;
-    size_t rebuild_every = 500;
-    size_t iters_since_rebuild = 0;
+    // ---- Adaptive cache-rebuild schedule (mirrors PYSampler) ------------
+    // A full O(n) (linear cache) or O(n^2) (quadratic cache) rebuild
+    // corrects floating-point drift accumulated by repeated incremental
+    // add/subtract updates. The interval is DERIVED from the drift actually
+    // measured at the previous rebuild (pre-rebuild lpdf vs. post-rebuild
+    // lpdf bracket exactly the error accumulated since then), rather than
+    // firing on a guessed fixed interval.
+    //
+    // The budget is counted in committed single-point moves (see
+    // commit_movers / commit_linear), not iterations, since that is what
+    // drift accumulates with: a birth/death/move proposal can touch anywhere
+    // from 0 to O(n) points depending on how many points switch centre.
+    double drift_target_rel = 1e-11;
+    double drift_rate_ewma = -1.0;
+    double drift_rate_decay = 0.3;
+    long long updates_since_rebuild = 0;
+    long long rebuild_budget = 0;
+    long long rebuild_budget_min = 0;
+    long long rebuild_budget_max = 0;
+    // Diagnostics, reported in debug mode.
+    size_t n_rebuilds = 0;
+    double worst_rel_drift = 0.0;
 
   // Public class methods
   public:
@@ -110,20 +132,19 @@ class VoronoiSampler {
     // curr_state (cluster_allocs / cluster_centres). Does NOT touch the
     // sufficient-statistics caches themselves.
     void sync_cache_ids();
+    // Adaptive drift control (see the schedule members above). Checks the
+    // committed-update budget and, if exhausted, rebuilds + re-derives the
+    // next budget from the measured drift.
+    void maybe_rebuild_cache();
+    void rebuild_cache_and_adapt();
 
-    // Movers for a candidate birth of a new centre at `new_centre_idx`:
-    // every point strictly closer to the candidate than to its own current
-    // centre, plus the candidate point itself. O(n).
-    MoverList determine_birth_movers(arma::uword new_centre_idx) const;
-    // Movers for a candidate death of `dying_centre_idx`: every point
-    // currently in that cluster (including the centre itself) reassigned to
-    // its nearest SURVIVING centre. O(|cluster| * K).
-    MoverList determine_death_movers(arma::uword dying_centre_idx) const;
-    // Movers for replacing `old_centre_idx` with `new_centre_idx`: the union
-    // of a death of `old_centre_idx` (with `new_centre_idx` included among
-    // the candidate destinations) and a birth of `new_centre_idx` (stealing
-    // points from clusters OTHER than the one being vacated).
-    MoverList determine_move_movers(arma::uword old_centre_idx, arma::uword new_centre_idx) const;
+    // Derives every changed point from the proposed positional allocations.
+    // Mapping each positional id through `prop_centres` makes this exactly
+    // match compute_tessellation(), including its tie and zero-distance
+    // behaviour. With no centres the baseline represents the single
+    // placeholder allocation as label 0, so do the same in the cache.
+    MoverList movers_for_proposal(const arma::uvec& prop_cluster_allocs,
+                    const std::vector<arma::uword>& prop_centres) const;
 
     // Scores `movers` against the current cache state WITHOUT mutating it
     // (quadratic: via a scoped QuadraticStatsTrialCache; linear: via

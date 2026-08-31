@@ -28,70 +28,76 @@ void VoronoiSampler::refresh_cache_state() {
         linear_cache->rebuild(distance_matrix, cache_id_allocs, curr_state.cluster_centres);
         curr_state.lpdf = linear_cache->current_lpdf();
     }
-    iters_since_rebuild = 0;
+    updates_since_rebuild = 0;
 }
 
-VoronoiSampler::MoverList VoronoiSampler::determine_birth_movers(arma::uword new_centre_idx) const {
-    // NOTE: relies on dist_to_own_centre reflecting the PRE-proposal state
-    // (sync_cache_ids/refresh_cache_state only run at init and after
-    // acceptance) -- including the degenerate curr_state.n_clust == 0 case,
-    // where sync_cache_ids fills dist_to_own_centre with +inf, so the
-    // general loop below already treats every point as a mover with no
-    // special-casing needed. Do NOT branch on curr_state.n_clust here: by
-    // the time callers reach this point they may have already temporarily
-    // mutated it (see generate_birth_proposal).
+// Relative difference between two log-densities, guarded against the
+// degenerate |x| < 1 regime where an absolute comparison is the right one.
+static inline double rel_diff(double a, double b) {
+    const double scale = std::max(1.0, std::max(std::fabs(a), std::fabs(b)));
+    return std::fabs(a - b) / scale;
+}
+
+void VoronoiSampler::maybe_rebuild_cache() {
+    if ((!stats_cache && !linear_cache) || rebuild_budget <= 0) return;
+    if (updates_since_rebuild < rebuild_budget) return;
+    rebuild_cache_and_adapt();
+}
+
+void VoronoiSampler::rebuild_cache_and_adapt() {
+    const long long ops = std::max<long long>(1, updates_since_rebuild);
+    const double before = curr_state.lpdf;
+
+    refresh_cache_state(); // rebuilds the cache from scratch and resets updates_since_rebuild
+    const double after = curr_state.lpdf;
+
+    // Drift measured for free: `before` carried `ops` incremental updates of
+    // accumulated error, `after` carries none.
+    const double rel_drift = rel_diff(before, after);
+    worst_rel_drift = std::max(worst_rel_drift, rel_drift);
+    ++n_rebuilds;
+
+    // Per-update relative drift rate, EWMA-smoothed. Floor the observation
+    // at one ulp so a lucky exact match doesn't send the budget to the
+    // ceiling on a single sample.
+    const double obs_rate = std::max(rel_drift, std::numeric_limits<double>::epsilon())
+                          / static_cast<double>(ops);
+    drift_rate_ewma = (drift_rate_ewma < 0.0)
+                    ? obs_rate
+                    : (1.0 - drift_rate_decay) * drift_rate_ewma + drift_rate_decay * obs_rate;
+
+    // Extrapolate LINEARLY to the target -- conservative, since accumulated
+    // round-off grows at worst like O(updates) and typically like
+    // O(sqrt(updates)).
+    double next = drift_target_rel / drift_rate_ewma;
+    // Damp: at most a 2x move in either direction per rebuild.
+    next = std::min(next, 2.0 * static_cast<double>(rebuild_budget));
+    next = std::max(next, 0.5 * static_cast<double>(rebuild_budget));
+    next = std::min(next, static_cast<double>(rebuild_budget_max));
+    next = std::max(next, static_cast<double>(rebuild_budget_min));
+    rebuild_budget = static_cast<long long>(std::llround(next));
+
+    if (algo_params.debug) {
+        Rcpp::Rcout << "Cache rebuild #" << n_rebuilds << ": " << ops
+                    << " updates, relative drift " << rel_drift
+                    << ", next budget " << rebuild_budget << " updates" << std::endl;
+    }
+}
+
+VoronoiSampler::MoverList VoronoiSampler::movers_for_proposal(
+    const arma::uvec& prop_cluster_allocs,
+    const std::vector<arma::uword>& prop_centres) const {
     MoverList movers;
+    movers.reserve(n_data);
     for (arma::uword x = 0; x < n_data; ++x) {
-        if (x == new_centre_idx) continue;
-        double d_new = distance_matrix(x, new_centre_idx);
-        if (d_new > 0.0 && d_new < dist_to_own_centre(x)) {
-            movers.emplace_back(x, new_centre_idx);
+        arma::uword destination = 0;
+        if (!prop_centres.empty()) {
+            destination = prop_centres[prop_cluster_allocs(x)];
+        }
+        if (cache_id_allocs(x) != destination) {
+            movers.emplace_back(x, destination);
         }
     }
-    movers.emplace_back(new_centre_idx, new_centre_idx);
-    return movers;
-}
-
-VoronoiSampler::MoverList VoronoiSampler::determine_death_movers(arma::uword dying_centre_idx) const {
-    MoverList movers;
-    arma::uvec members = arma::find(cache_id_allocs == dying_centre_idx);
-    for (arma::uword idx = 0; idx < members.n_elem; ++idx) {
-        arma::uword x = members(idx);
-        arma::uword best_centre = dying_centre_idx; // degenerate fallback if no survivors (mirrors compute_tessellation's empty-centres behaviour)
-        double best_dist = arma::datum::inf;
-        for (arma::uword c : curr_state.cluster_centres) {
-            if (c == dying_centre_idx) continue;
-            double d = distance_matrix(x, c);
-            if (d < best_dist) { best_dist = d; best_centre = c; }
-        }
-        movers.emplace_back(x, best_centre);
-    }
-    return movers;
-}
-
-VoronoiSampler::MoverList VoronoiSampler::determine_move_movers(arma::uword old_centre_idx, arma::uword new_centre_idx) const {
-    MoverList movers;
-    arma::uvec old_members = arma::find(cache_id_allocs == old_centre_idx);
-    for (arma::uword idx = 0; idx < old_members.n_elem; ++idx) {
-        arma::uword x = old_members(idx);
-        if (x == new_centre_idx) continue; // handled unconditionally below
-        arma::uword best_centre = new_centre_idx;
-        double best_dist = distance_matrix(x, new_centre_idx);
-        for (arma::uword c : curr_state.cluster_centres) {
-            if (c == old_centre_idx) continue;
-            double d = distance_matrix(x, c);
-            if (d < best_dist) { best_dist = d; best_centre = c; }
-        }
-        movers.emplace_back(x, best_centre);
-    }
-    for (arma::uword x = 0; x < n_data; ++x) {
-        if (x == new_centre_idx || cache_id_allocs(x) == old_centre_idx) continue;
-        double d_new = distance_matrix(x, new_centre_idx);
-        if (d_new > 0.0 && d_new < dist_to_own_centre(x)) {
-            movers.emplace_back(x, new_centre_idx);
-        }
-    }
-    movers.emplace_back(new_centre_idx, new_centre_idx); // the moved centre always belongs to its own new cluster
     return movers;
 }
 
@@ -125,6 +131,7 @@ double VoronoiSampler::score_linear(const MoverList& movers, const std::vector<a
 
 double VoronoiSampler::commit_movers(const MoverList& movers) {
     if (!stats_cache) return 0.0;
+    updates_since_rebuild += static_cast<long long>(movers.size());
     double before = stats_cache->current_lpdf();
     for (const auto& mv : movers) {
         arma::uword point = mv.first, to = mv.second, from = cache_id_allocs(point);
@@ -143,6 +150,7 @@ double VoronoiSampler::commit_movers(const MoverList& movers) {
 
 void VoronoiSampler::commit_linear(const MoverList& movers, const std::vector<arma::uword>& new_centres) {
     if (!linear_cache) return;
+    updates_since_rebuild += static_cast<long long>(movers.size());
     for (const auto& mv : movers) {
         arma::uword point = mv.first, to = mv.second, from = cache_id_allocs(point);
         if (from != to) {
@@ -292,18 +300,16 @@ arma::vec VoronoiSampler::compute_birth_probs() const {
         #pragma omp parallel for
         for (size_t i = 0; i < indices_to_flip.n_elem; ++i) {
             int k = indices_to_flip[i];
+            std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
+            auto it = std::lower_bound(cand_centres.begin(), cand_centres.end(), (arma::uword) k);
+            cand_centres.insert(it, (arma::uword) k);
+            arma::uvec cand_allocs = compute_tessellation(cand_centres);
             double cand_lpdf;
             if (stats_cache) {
-                // O(n) mover determination + O(n) scored delta, vs. the
-                // O(n*K) tessellation + O(n^2) likelihood this replaces.
-                MoverList movers = determine_birth_movers(k);
+                MoverList movers = movers_for_proposal(cand_allocs, cand_centres);
                 arma::uvec scratch = cache_id_allocs;
                 cand_lpdf = curr_state.lpdf + score_movers(movers, scratch);
             } else {
-                std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
-                auto it = std::lower_bound(cand_centres.begin(), cand_centres.end(), (arma::uword) k);
-                cand_centres.insert(it, (arma::uword) k);
-                arma::uvec cand_allocs = compute_tessellation(cand_centres);
                 cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs, cand_centres);
             }
             log_probs(k) = cand_lpdf + prior->eval_lpdf(curr_state.n_clust + 1);
@@ -333,20 +339,18 @@ arma::vec VoronoiSampler::compute_death_probs() const {
         #pragma omp parallel for
         for (size_t i = 0; i < indices_to_flip.n_elem; ++i) {
             int k = indices_to_flip[i];
+            std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
+            cand_centres.erase(
+                std::remove(cand_centres.begin(), cand_centres.end(), (arma::uword) k),
+                cand_centres.end()
+            );
+            arma::uvec cand_allocs = compute_tessellation(cand_centres);
             double cand_lpdf;
             if (stats_cache) {
-                MoverList movers = determine_death_movers(k);
+                MoverList movers = movers_for_proposal(cand_allocs, cand_centres);
                 arma::uvec scratch = cache_id_allocs;
                 cand_lpdf = curr_state.lpdf + score_movers(movers, scratch);
             } else {
-                // Build candidate by removing the target centre
-                std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
-                cand_centres.erase(
-                    std::remove(cand_centres.begin(), cand_centres.end(), k),
-                    cand_centres.end()
-                );
-                // Evaluate
-                arma::uvec cand_allocs = compute_tessellation(cand_centres);
                 cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs, cand_centres);
             }
             log_probs(k) = cand_lpdf + prior->eval_lpdf(curr_state.n_clust - 1);
@@ -376,18 +380,16 @@ arma::vec VoronoiSampler::compute_move_probs(int old_centre_idx) const {
         #pragma omp parallel for
         for (size_t i = 0; i < indices_to_flip.n_elem; ++i) {
             int k = indices_to_flip[i];
+            std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
+            std::replace(cand_centres.begin(), cand_centres.end(), (arma::uword) old_centre_idx, (arma::uword) k);
+            std::sort(cand_centres.begin(), cand_centres.end());
+            arma::uvec cand_allocs = compute_tessellation(cand_centres);
             double cand_lpdf;
             if (stats_cache) {
-                MoverList movers = determine_move_movers((arma::uword) old_centre_idx, (arma::uword) k);
+                MoverList movers = movers_for_proposal(cand_allocs, cand_centres);
                 arma::uvec scratch = cache_id_allocs;
                 cand_lpdf = curr_state.lpdf + score_movers(movers, scratch);
             } else {
-                // Build candidate by replacing the old centre and re-sorting
-                std::vector<arma::uword> cand_centres = curr_state.cluster_centres;
-                std::replace(cand_centres.begin(), cand_centres.end(), (arma::uword) old_centre_idx, (arma::uword) k);
-                std::sort(cand_centres.begin(), cand_centres.end());
-                // Evaluate
-                arma::uvec cand_allocs = compute_tessellation(cand_centres);
                 cand_lpdf = likelihood->eval_lpdf(distance_matrix, cand_allocs, cand_centres);
             }
             log_probs(k) = cand_lpdf + prior->eval_lpdf(curr_state.n_clust);
@@ -435,6 +437,12 @@ void VoronoiSampler::init() {
     // the cache_id_allocs / dist_to_own_centre bookkeeping used by the
     // birth/death/move mover-determination logic.
     refresh_cache_state();
+    // Seed the adaptive rebuild schedule (only meaningful once a cache exists).
+    if (stats_cache || linear_cache) {
+        rebuild_budget_min = std::max<long long>(1, static_cast<long long>(n_data));
+        rebuild_budget_max = 200 * rebuild_budget_min;
+        rebuild_budget     = std::min(rebuild_budget_max, 10 * rebuild_budget_min);
+    }
     // Initialization complete
     if (algo_params.debug) {curr_state.print();}    
     return;
@@ -462,11 +470,11 @@ TessellationProposal VoronoiSampler::generate_birth_proposal() {
     res.prop_centres = curr_state.cluster_centres;
     res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
     if (stats_cache) {
-        MoverList movers = determine_birth_movers(new_centre_idx);
+        MoverList movers = movers_for_proposal(res.prop_cluster_allocs, res.prop_centres);
         arma::uvec scratch = cache_id_allocs;
         res.prop_lpdf = curr_state.lpdf + score_movers(movers, scratch);
     } else if (linear_cache) {
-        MoverList movers = determine_birth_movers(new_centre_idx);
+        MoverList movers = movers_for_proposal(res.prop_cluster_allocs, res.prop_centres);
         arma::uvec scratch = cache_id_allocs;
         res.prop_lpdf = curr_state.lpdf + score_linear(movers, res.prop_centres, scratch);
     } else {
@@ -507,11 +515,11 @@ TessellationProposal VoronoiSampler::generate_death_proposal() {
     res.prop_centres = curr_state.cluster_centres;
     res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
     if (stats_cache) {
-        MoverList movers = determine_death_movers(dead_centre_idx);
+        MoverList movers = movers_for_proposal(res.prop_cluster_allocs, res.prop_centres);
         arma::uvec scratch = cache_id_allocs;
         res.prop_lpdf = curr_state.lpdf + score_movers(movers, scratch);
     } else if (linear_cache) {
-        MoverList movers = determine_death_movers(dead_centre_idx);
+        MoverList movers = movers_for_proposal(res.prop_cluster_allocs, res.prop_centres);
         arma::uvec scratch = cache_id_allocs;
         res.prop_lpdf = curr_state.lpdf + score_linear(movers, res.prop_centres, scratch);
     } else {
@@ -557,11 +565,11 @@ TessellationProposal VoronoiSampler::generate_move_proposal() {
     res.prop_centres = curr_state.cluster_centres;
     res.prop_cluster_allocs = compute_tessellation(res.prop_centres);
     if (stats_cache) {
-        MoverList movers = determine_move_movers((arma::uword) old_centre_idx, (arma::uword) new_centre_idx);
+        MoverList movers = movers_for_proposal(res.prop_cluster_allocs, res.prop_centres);
         arma::uvec scratch = cache_id_allocs;
         res.prop_lpdf = curr_state.lpdf + score_movers(movers, scratch);
     } else if (linear_cache) {
-        MoverList movers = determine_move_movers((arma::uword) old_centre_idx, (arma::uword) new_centre_idx);
+        MoverList movers = movers_for_proposal(res.prop_cluster_allocs, res.prop_centres);
         arma::uvec scratch = cache_id_allocs;
         res.prop_lpdf = curr_state.lpdf + score_linear(movers, res.prop_centres, scratch);
     } else {
@@ -591,19 +599,10 @@ void VoronoiSampler::test_proposal(const TessellationProposal & prop_state) {
         std::log(prop_state.prob_old_new) - std::log(prop_state.prob_new_old);
     // Test for acceptance
     if(std::log(std::uniform_real_distribution<double>(0.0, 1.0)(rng)) < log_arate) {
-        // Recompute the mover list once more (cheap) against the STILL
-        // pre-acceptance cache_id_allocs/dist_to_own_centre/cluster_centres,
-        // before any of them get updated below, then commit it to whichever
-        // incremental cache is active.
+        // Derive the exact changes before replacing the current state.
         MoverList movers;
         if (stats_cache || linear_cache) {
-            if (prop_state.centre_to_add != -1 && prop_state.centre_to_remove == -1) {
-                movers = determine_birth_movers((arma::uword) prop_state.centre_to_add);
-            } else if (prop_state.centre_to_remove != -1 && prop_state.centre_to_add == -1) {
-                movers = determine_death_movers((arma::uword) prop_state.centre_to_remove);
-            } else if (prop_state.centre_to_add != -1 && prop_state.centre_to_remove != -1) {
-                movers = determine_move_movers((arma::uword) prop_state.centre_to_remove, (arma::uword) prop_state.centre_to_add);
-            }
+            movers = movers_for_proposal(prop_state.prop_cluster_allocs, prop_state.prop_centres);
         }
         // Update state components
         curr_state.n_clust = prop_state.prop_n_clust;
@@ -637,12 +636,10 @@ void VoronoiSampler::step(size_t curr_iter) {
     TessellationProposal prop = generate_proposal(curr_iter);
     // Test proposal
     test_proposal(prop);
-    // Periodic full rebuild of the incremental cache to correct floating-
-    // point drift accumulated by many repeated add/subtract updates.
-    iters_since_rebuild++;
-    if ((stats_cache || linear_cache) && rebuild_every > 0 && iters_since_rebuild >= rebuild_every) {
-        refresh_cache_state();
-    }
+    // Adaptive drift control: rebuilds the incremental cache from scratch
+    // once enough committed updates have accumulated to risk meaningful
+    // floating-point drift (see the schedule members in the header).
+    maybe_rebuild_cache();
 };
 
 // Public proposal generator (useful for MultiView version)
@@ -668,13 +665,7 @@ TessellationProposal VoronoiSampler::generate_proposal(size_t curr_iter) {
 void VoronoiSampler::apply_accepted_proposal(const TessellationProposal& prop) {
     MoverList movers;
     if (stats_cache || linear_cache) {
-        if (prop.centre_to_add != -1 && prop.centre_to_remove == -1) {
-            movers = determine_birth_movers((arma::uword) prop.centre_to_add);
-        } else if (prop.centre_to_remove != -1 && prop.centre_to_add == -1) {
-            movers = determine_death_movers((arma::uword) prop.centre_to_remove);
-        } else if (prop.centre_to_add != -1 && prop.centre_to_remove != -1) {
-            movers = determine_move_movers((arma::uword) prop.centre_to_remove, (arma::uword) prop.centre_to_add);
-        }
+        movers = movers_for_proposal(prop.prop_cluster_allocs, prop.prop_centres);
     }
     curr_state.n_clust = prop.prop_n_clust;
     curr_state.cluster_allocs = std::move(prop.prop_cluster_allocs);
