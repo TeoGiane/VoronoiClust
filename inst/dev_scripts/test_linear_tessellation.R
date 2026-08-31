@@ -1,14 +1,14 @@
 # library(VoronoiClust)
-library(HPCVoronoiClust)
+library(VoronoiClust)
 library(ggplot2)
 
 # generate synthetic data
 N <- 100
-result <- VoronoiClust::generate_mixture(N = N, K = 10, M = 10, dim = 10, alpha = 1, compute.oracle = FALSE, sigma1 = 0.1, sigma2 = 0.1)
-D = result$D1
+result <- generate_multiview_data(n_obs = N, n_vars = 10, n_clusters = 10, n_views = 1, dirichlet_conc = 10, noise_sd = 0.3)
+D = result$distances[[1]]
 
 # Specify Likelihood parameters via Empirical Bayes
-lik_params = compute_EB_params(D, 10, result$clusts1, linear = TRUE, repulsion = TRUE)
+lik_params = compute_EB_params(D, 10, initial_allocs = result$clusters[[1]], linear = FALSE, repulsion = TRUE)
 # params$medoids.init <- round(seq(1,N,,4))
 # params$z.init <- 1:N
 
