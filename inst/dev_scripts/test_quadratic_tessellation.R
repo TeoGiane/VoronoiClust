@@ -4,7 +4,7 @@ library(ggplot2)
 
 # generate synthetic data
 N <- 1000
-result <- generate_multiview_data(n_obs = N, n_vars = 10, n_clusters = 10, n_views = 1, dirichlet_conc = 10, noise_sd = 0.2)
+result <- generate_multiview_data(n_obs = N, n_vars = 10, n_clusters = 10, n_views = 1, dirichlet_conc = 10, noise_sd = 0.1)
 D = result$distances[[1]]
 
 # Specify Likelihood parameters via Empirical Bayes
