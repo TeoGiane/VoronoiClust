@@ -22,7 +22,7 @@
 #'
 #' @export
 mcmc_tessellation <- function(distance_matrix, likelihood_params, prior_params, algo_params) {
-    .Call('_VoronoiClust_mcmc_tessellation', PACKAGE = 'VoronoiClust', distance_matrix, likelihood_params, prior_params, algo_params)
+    .Call(`_VoronoiClust_mcmc_tessellation`, distance_matrix, likelihood_params, prior_params, algo_params)
 }
 
 #' Run Split-Merge MCMC for Pitman-Yor Process Mixture Model
@@ -47,7 +47,7 @@ mcmc_tessellation <- function(distance_matrix, likelihood_params, prior_params, 
 #'
 #' @export
 mcmc_PY <- function(distance_matrix, likelihood_params, prior_params, algo_params) {
-    .Call('_VoronoiClust_mcmc_PY', PACKAGE = 'VoronoiClust', distance_matrix, likelihood_params, prior_params, algo_params)
+    .Call(`_VoronoiClust_mcmc_PY`, distance_matrix, likelihood_params, prior_params, algo_params)
 }
 
 #' Run Reversible Jump MCMC for Multi-View Voronoi Tessellation
@@ -69,7 +69,7 @@ mcmc_PY <- function(distance_matrix, likelihood_params, prior_params, algo_param
 #'
 #' @export
 mcmc_tessellation_multiview <- function(distance_matrices, likelihood_params, prior_params, algo_params) {
-    .Call('_VoronoiClust_mcmc_tessellation_multiview', PACKAGE = 'VoronoiClust', distance_matrices, likelihood_params, prior_params, algo_params)
+    .Call(`_VoronoiClust_mcmc_tessellation_multiview`, distance_matrices, likelihood_params, prior_params, algo_params)
 }
 
 #' Run Split-Merge MCMC for Multi-View Pitman-Yor Mixture Model
@@ -90,6 +90,6 @@ mcmc_tessellation_multiview <- function(distance_matrices, likelihood_params, pr
 #'
 #' @export
 mcmc_PY_multiview <- function(distance_matrices, likelihood_params, prior_params, algo_params) {
-    .Call('_VoronoiClust_mcmc_PY_multiview', PACKAGE = 'VoronoiClust', distance_matrices, likelihood_params, prior_params, algo_params)
+    .Call(`_VoronoiClust_mcmc_PY_multiview`, distance_matrices, likelihood_params, prior_params, algo_params)
 }
 
