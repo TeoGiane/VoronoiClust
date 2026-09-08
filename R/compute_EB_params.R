@@ -27,14 +27,15 @@ compute_EB_params <- function(distance_matrix, n_clusters, initial_allocs = NULL
 #' @return A list of likelihood parameters.
 #' @keywords internal
 compute_EB_params_linear <- function(D, K, k2 = NULL, repulsion = TRUE) {
-  n <- nrow(D)
+  N <- nrow(D)
   if(is.null(k2)) {
-    medoidsfit <- cluster::clara(D, K)
-    k2 <- medoidsfit$clustering
-    medoids <- medoidsfit$i.med
-    # medoidsfit <- fastkmedoids::fastpam(D, n, K)
-    # k2         <- medoidsfit@assignment
-    # medoids    <- medoidsfit@medoids + 1        #they are using C++
+    rdist <- as.vector(as.dist(D))
+    # medoidsfit <- cluster::clara(D, K)
+    # k2 <- medoidsfit$clustering
+    # medoids <- medoidsfit$i.med
+    medoidsfit <- fastkmedoids::fastpam(rdist, N, K, initializer = "BUILD")
+    k2 <- medoidsfit@assignment
+    medoids <- medoidsfit@medoids
   } else {
     r_D                 <- rowSums(D)
     names(r_D)          <- 1:n
@@ -86,12 +87,13 @@ compute_EB_params_linear <- function(D, K, k2 = NULL, repulsion = TRUE) {
 #' @return A list of likelihood parameters.
 #' @keywords internal
 compute_EB_params_quadratic <- function(D, K, k2 = NULL, repulsion = TRUE) {
-  n <- nrow(D)
+  N <- nrow(D)
   if(is.null(k2)){
-    medoidsfit <- cluster::clara(D, K)
-    k2 <- medoidsfit$clustering
-    # medoidsfit <- fastkmedoids::fastpam(D, n, K)
-    # k2         <- medoidsfit@assignment
+    # medoidsfit <- cluster::clara(D, K)
+    # k2 <- medoidsfit$clustering
+    rdist <- as.vector(as.dist(D))
+    medoidsfit <- fastkmedoids::fastpam(rdist, N, K, initializer = "BUILD")
+    k2 <- medoidsfit@assignment
   }
 
   sel1 = outer(k2,k2, function(x,y) x==y) & upper.tri(diag(length(k2)))
