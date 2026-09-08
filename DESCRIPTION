@@ -1,7 +1,7 @@
 Package: VoronoiClust
 Type: Package
 Title: Bayesian Distance Clustering via Voronoi Tessellations
-Version: 0.1.3
+Version: 0.1.4
 Authors@R:
     person("Matteo", "Gianella", email = "gianeteo@hotmail.it", role = c("aut", "cre"))
 Description: More about what it does (maybe more than one line).
@@ -10,11 +10,11 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports:
-    cluster,
+    fastkmedoids,
     Rcpp
 LinkingTo: 
     Rcpp,
     RcppArmadillo,
     RcppGSL,
     RcppProgress
-RoxygenNote: 7.3.3
+Config/roxygen2/version: 8.1.0
