@@ -2,6 +2,7 @@
 .Rproj.user/
 .old/
 R/pending/
+inst/
 
 # Files to ignore
 *.o
