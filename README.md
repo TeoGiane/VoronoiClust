@@ -13,6 +13,12 @@ install.packages("remotes")
 remotes::install_local("path/to/VoronoiClust")
 ```
 
+or install it via `pak` as:
+
+```r
+pak::pak("TeoGiane/VoronoiClust")
+```
+
 The package contains compiled C++ code. Make sure `R` build tools and the system dependencies required by `RcppGSL` are available on your platform.
 
 ## Quick start
