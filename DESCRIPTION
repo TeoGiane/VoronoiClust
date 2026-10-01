@@ -1,29 +1,20 @@
 Package: VoronoiClust
+Type: Package
 Title: Bayesian Distance Clustering via Voronoi Tessellations
-Version: 0.1.0
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Version: 0.1.4
+Authors@R:
+    person("Matteo", "Gianella", email = "gianeteo@hotmail.it", role = c("aut", "cre"))
+Description: More about what it does (maybe more than one line).
+    Continuation lines should be indented.
 License: MIT + file LICENSE
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+LazyData: true
+Imports:
+    fastkmedoids,
+    Rcpp
 LinkingTo: 
     Rcpp,
-    RcppArmadillo
-Imports: 
-    Rcpp,
-    truncnorm,
-    GPBayes,
-    MASS,
-    FCPS,
-    salso,
-    posterior,
-    bayesplot,
-    MCMCpack,
-    fastkmedoids,
-    loo,
-    plyr,
-    matrixStats,
-    igraph,
-    qs2
+    RcppArmadillo,
+    RcppGSL,
+    RcppProgress
+Config/roxygen2/version: 8.1.0

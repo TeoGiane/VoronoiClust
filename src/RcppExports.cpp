@@ -2,6 +2,7 @@
 // Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #include <RcppArmadillo.h>
+#include <RcppGSL.h>
 #include <Rcpp.h>
 
 using namespace Rcpp;
@@ -11,244 +12,68 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// get_log_prob_D_rcpp_list
-List get_log_prob_D_rcpp_list(arma::mat& D, arma::vec z, List params);
-RcppExport SEXP _VoronoiClust_get_log_prob_D_rcpp_list(SEXP DSEXP, SEXP zSEXP, SEXP paramsSEXP) {
+// mcmc_tessellation
+Rcpp::List mcmc_tessellation(const arma::mat& distance_matrix, Rcpp::List likelihood_params, Rcpp::List prior_params, Rcpp::List algo_params);
+RcppExport SEXP _VoronoiClust_mcmc_tessellation(SEXP distance_matrixSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat& >::type D(DSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type z(zSEXP);
-    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_log_prob_D_rcpp_list(D, z, params));
+    Rcpp::traits::input_parameter< const arma::mat& >::type distance_matrix(distance_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type likelihood_params(likelihood_paramsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type prior_params(prior_paramsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type algo_params(algo_paramsSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmc_tessellation(distance_matrix, likelihood_params, prior_params, algo_params));
     return rcpp_result_gen;
 END_RCPP
 }
-// get_log_prob_D_rcpp
-double get_log_prob_D_rcpp(arma::mat& D, arma::vec z, List params);
-RcppExport SEXP _VoronoiClust_get_log_prob_D_rcpp(SEXP DSEXP, SEXP zSEXP, SEXP paramsSEXP) {
+// mcmc_PY
+Rcpp::List mcmc_PY(const arma::mat& distance_matrix, Rcpp::List likelihood_params, Rcpp::List prior_params, Rcpp::List algo_params);
+RcppExport SEXP _VoronoiClust_mcmc_PY(SEXP distance_matrixSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat& >::type D(DSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type z(zSEXP);
-    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_log_prob_D_rcpp(D, z, params));
+    Rcpp::traits::input_parameter< const arma::mat& >::type distance_matrix(distance_matrixSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type likelihood_params(likelihood_paramsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type prior_params(prior_paramsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::List >::type algo_params(algo_paramsSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmc_PY(distance_matrix, likelihood_params, prior_params, algo_params));
     return rcpp_result_gen;
 END_RCPP
 }
-// get_log_prob_partition_rcpp
-double get_log_prob_partition_rcpp(arma::vec z, double M, double theta);
-RcppExport SEXP _VoronoiClust_get_log_prob_partition_rcpp(SEXP zSEXP, SEXP MSEXP, SEXP thetaSEXP) {
+// mcmc_tessellation_multiview
+Rcpp::List mcmc_tessellation_multiview(const Rcpp::List& distance_matrices, const Rcpp::List& likelihood_params, const Rcpp::List& prior_params, const Rcpp::List& algo_params);
+RcppExport SEXP _VoronoiClust_mcmc_tessellation_multiview(SEXP distance_matricesSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type z(zSEXP);
-    Rcpp::traits::input_parameter< double >::type M(MSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_log_prob_partition_rcpp(z, M, theta));
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type distance_matrices(distance_matricesSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type likelihood_params(likelihood_paramsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type prior_params(prior_paramsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type algo_params(algo_paramsSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmc_tessellation_multiview(distance_matrices, likelihood_params, prior_params, algo_params));
     return rcpp_result_gen;
 END_RCPP
 }
-// check_same_partition_rcpp
-bool check_same_partition_rcpp(arma::vec c1, arma::vec c2);
-RcppExport SEXP _VoronoiClust_check_same_partition_rcpp(SEXP c1SEXP, SEXP c2SEXP) {
+// mcmc_PY_multiview
+Rcpp::List mcmc_PY_multiview(const Rcpp::List& distance_matrices, const Rcpp::List& likelihood_params, const Rcpp::List& prior_params, const Rcpp::List& algo_params);
+RcppExport SEXP _VoronoiClust_mcmc_PY_multiview(SEXP distance_matricesSEXP, SEXP likelihood_paramsSEXP, SEXP prior_paramsSEXP, SEXP algo_paramsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type c1(c1SEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type c2(c2SEXP);
-    rcpp_result_gen = Rcpp::wrap(check_same_partition_rcpp(c1, c2));
-    return rcpp_result_gen;
-END_RCPP
-}
-// update_gammas_rcpp
-arma::vec update_gammas_rcpp(arma::vec z1, arma::vec z2, double M, double theta, arma::vec gamma_d, double alpha_d);
-RcppExport SEXP _VoronoiClust_update_gammas_rcpp(SEXP z1SEXP, SEXP z2SEXP, SEXP MSEXP, SEXP thetaSEXP, SEXP gamma_dSEXP, SEXP alpha_dSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type z1(z1SEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type z2(z2SEXP);
-    Rcpp::traits::input_parameter< double >::type M(MSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type gamma_d(gamma_dSEXP);
-    Rcpp::traits::input_parameter< double >::type alpha_d(alpha_dSEXP);
-    rcpp_result_gen = Rcpp::wrap(update_gammas_rcpp(z1, z2, M, theta, gamma_d, alpha_d));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_log_prob_allocations_comp_check_rcpp
-arma::vec get_log_prob_allocations_comp_check_rcpp(arma::vec z1, arma::vec z2, arma::vec gamma_d, int i, double M, double theta, arma::mat D, Rcpp::List params);
-RcppExport SEXP _VoronoiClust_get_log_prob_allocations_comp_check_rcpp(SEXP z1SEXP, SEXP z2SEXP, SEXP gamma_dSEXP, SEXP iSEXP, SEXP MSEXP, SEXP thetaSEXP, SEXP DSEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type z1(z1SEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type z2(z2SEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type gamma_d(gamma_dSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    Rcpp::traits::input_parameter< double >::type M(MSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type D(DSEXP);
-    Rcpp::traits::input_parameter< Rcpp::List >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_log_prob_allocations_comp_check_rcpp(z1, z2, gamma_d, i, M, theta, D, params));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_log_prob_allocations_rcpp
-arma::vec get_log_prob_allocations_rcpp(arma::vec z, int i, double M, double theta, arma::mat D, List params);
-RcppExport SEXP _VoronoiClust_get_log_prob_allocations_rcpp(SEXP zSEXP, SEXP iSEXP, SEXP MSEXP, SEXP thetaSEXP, SEXP DSEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type z(zSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    Rcpp::traits::input_parameter< double >::type M(MSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type D(DSEXP);
-    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_log_prob_allocations_rcpp(z, i, M, theta, D, params));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_log_prob_allocations_marginal_rcpp
-arma::vec get_log_prob_allocations_marginal_rcpp(arma::vec z, int i, double M, double theta, arma::mat D, List params);
-RcppExport SEXP _VoronoiClust_get_log_prob_allocations_marginal_rcpp(SEXP zSEXP, SEXP iSEXP, SEXP MSEXP, SEXP thetaSEXP, SEXP DSEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type z(zSEXP);
-    Rcpp::traits::input_parameter< int >::type i(iSEXP);
-    Rcpp::traits::input_parameter< double >::type M(MSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type D(DSEXP);
-    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_log_prob_allocations_marginal_rcpp(z, i, M, theta, D, params));
-    return rcpp_result_gen;
-END_RCPP
-}
-// telescopic_dependence_rcpp
-double telescopic_dependence_rcpp(const arma::vec& z1, const arma::vec& z2);
-RcppExport SEXP _VoronoiClust_telescopic_dependence_rcpp(SEXP z1SEXP, SEXP z2SEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::vec& >::type z1(z1SEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type z2(z2SEXP);
-    rcpp_result_gen = Rcpp::wrap(telescopic_dependence_rcpp(z1, z2));
-    return rcpp_result_gen;
-END_RCPP
-}
-// updateOracle_rcpp
-Rcpp::List updateOracle_rcpp(arma::mat& oracle_posterior, arma::mat& oracle_coclustering, const arma::mat& pnts1, const arma::mat& clust_centres1, const arma::mat& Cov1, const arma::vec& tempprobs);
-RcppExport SEXP _VoronoiClust_updateOracle_rcpp(SEXP oracle_posteriorSEXP, SEXP oracle_coclusteringSEXP, SEXP pnts1SEXP, SEXP clust_centres1SEXP, SEXP Cov1SEXP, SEXP tempprobsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat& >::type oracle_posterior(oracle_posteriorSEXP);
-    Rcpp::traits::input_parameter< arma::mat& >::type oracle_coclustering(oracle_coclusteringSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type pnts1(pnts1SEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type clust_centres1(clust_centres1SEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type Cov1(Cov1SEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type tempprobs(tempprobsSEXP);
-    rcpp_result_gen = Rcpp::wrap(updateOracle_rcpp(oracle_posterior, oracle_coclustering, pnts1, clust_centres1, Cov1, tempprobs));
-    return rcpp_result_gen;
-END_RCPP
-}
-// sampleDistances_rcpp
-List sampleDistances_rcpp(IntegerVector z1, List hyperparams_lik);
-RcppExport SEXP _VoronoiClust_sampleDistances_rcpp(SEXP z1SEXP, SEXP hyperparams_likSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< IntegerVector >::type z1(z1SEXP);
-    Rcpp::traits::input_parameter< List >::type hyperparams_lik(hyperparams_likSEXP);
-    rcpp_result_gen = Rcpp::wrap(sampleDistances_rcpp(z1, hyperparams_lik));
-    return rcpp_result_gen;
-END_RCPP
-}
-// update_z1_rcpp
-arma::vec update_z1_rcpp(arma::vec z1, arma::vec z2, arma::vec gamma_d, double M, double theta, arma::mat D1, List params);
-RcppExport SEXP _VoronoiClust_update_z1_rcpp(SEXP z1SEXP, SEXP z2SEXP, SEXP gamma_dSEXP, SEXP MSEXP, SEXP thetaSEXP, SEXP D1SEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type z1(z1SEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type z2(z2SEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type gamma_d(gamma_dSEXP);
-    Rcpp::traits::input_parameter< double >::type M(MSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type D1(D1SEXP);
-    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(update_z1_rcpp(z1, z2, gamma_d, M, theta, D1, params));
-    return rcpp_result_gen;
-END_RCPP
-}
-// update_z2_rcpp
-arma::vec update_z2_rcpp(arma::vec z1, arma::vec z2, arma::vec gamma_d, double M, double theta, arma::mat D2, List params);
-RcppExport SEXP _VoronoiClust_update_z2_rcpp(SEXP z1SEXP, SEXP z2SEXP, SEXP gamma_dSEXP, SEXP MSEXP, SEXP thetaSEXP, SEXP D2SEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::vec >::type z1(z1SEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type z2(z2SEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type gamma_d(gamma_dSEXP);
-    Rcpp::traits::input_parameter< double >::type M(MSEXP);
-    Rcpp::traits::input_parameter< double >::type theta(thetaSEXP);
-    Rcpp::traits::input_parameter< arma::mat >::type D2(D2SEXP);
-    Rcpp::traits::input_parameter< List >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(update_z2_rcpp(z1, z2, gamma_d, M, theta, D2, params));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_log_prob_D_tesselation_2_rcpp
-double get_log_prob_D_tesselation_2_rcpp(const arma::mat& D, const arma::uvec& z, const arma::uvec& centers, bool repulsion, const List& params);
-RcppExport SEXP _VoronoiClust_get_log_prob_D_tesselation_2_rcpp(SEXP DSEXP, SEXP zSEXP, SEXP centersSEXP, SEXP repulsionSEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type D(DSEXP);
-    Rcpp::traits::input_parameter< const arma::uvec& >::type z(zSEXP);
-    Rcpp::traits::input_parameter< const arma::uvec& >::type centers(centersSEXP);
-    Rcpp::traits::input_parameter< bool >::type repulsion(repulsionSEXP);
-    Rcpp::traits::input_parameter< const List& >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_log_prob_D_tesselation_2_rcpp(D, z, centers, repulsion, params));
-    return rcpp_result_gen;
-END_RCPP
-}
-// get_log_prob_D_tesselation_rcpp
-double get_log_prob_D_tesselation_rcpp(const arma::mat& D, const arma::vec& z, const arma::uvec& centers, bool repulsion, const List& params);
-RcppExport SEXP _VoronoiClust_get_log_prob_D_tesselation_rcpp(SEXP DSEXP, SEXP zSEXP, SEXP centersSEXP, SEXP repulsionSEXP, SEXP paramsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type D(DSEXP);
-    Rcpp::traits::input_parameter< const arma::vec& >::type z(zSEXP);
-    Rcpp::traits::input_parameter< const arma::uvec& >::type centers(centersSEXP);
-    Rcpp::traits::input_parameter< bool >::type repulsion(repulsionSEXP);
-    Rcpp::traits::input_parameter< const List& >::type params(paramsSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_log_prob_D_tesselation_rcpp(D, z, centers, repulsion, params));
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type distance_matrices(distance_matricesSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type likelihood_params(likelihood_paramsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type prior_params(prior_paramsSEXP);
+    Rcpp::traits::input_parameter< const Rcpp::List& >::type algo_params(algo_paramsSEXP);
+    rcpp_result_gen = Rcpp::wrap(mcmc_PY_multiview(distance_matrices, likelihood_params, prior_params, algo_params));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_VoronoiClust_get_log_prob_D_rcpp_list", (DL_FUNC) &_VoronoiClust_get_log_prob_D_rcpp_list, 3},
-    {"_VoronoiClust_get_log_prob_D_rcpp", (DL_FUNC) &_VoronoiClust_get_log_prob_D_rcpp, 3},
-    {"_VoronoiClust_get_log_prob_partition_rcpp", (DL_FUNC) &_VoronoiClust_get_log_prob_partition_rcpp, 3},
-    {"_VoronoiClust_check_same_partition_rcpp", (DL_FUNC) &_VoronoiClust_check_same_partition_rcpp, 2},
-    {"_VoronoiClust_update_gammas_rcpp", (DL_FUNC) &_VoronoiClust_update_gammas_rcpp, 6},
-    {"_VoronoiClust_get_log_prob_allocations_comp_check_rcpp", (DL_FUNC) &_VoronoiClust_get_log_prob_allocations_comp_check_rcpp, 8},
-    {"_VoronoiClust_get_log_prob_allocations_rcpp", (DL_FUNC) &_VoronoiClust_get_log_prob_allocations_rcpp, 6},
-    {"_VoronoiClust_get_log_prob_allocations_marginal_rcpp", (DL_FUNC) &_VoronoiClust_get_log_prob_allocations_marginal_rcpp, 6},
-    {"_VoronoiClust_telescopic_dependence_rcpp", (DL_FUNC) &_VoronoiClust_telescopic_dependence_rcpp, 2},
-    {"_VoronoiClust_updateOracle_rcpp", (DL_FUNC) &_VoronoiClust_updateOracle_rcpp, 6},
-    {"_VoronoiClust_sampleDistances_rcpp", (DL_FUNC) &_VoronoiClust_sampleDistances_rcpp, 2},
-    {"_VoronoiClust_update_z1_rcpp", (DL_FUNC) &_VoronoiClust_update_z1_rcpp, 7},
-    {"_VoronoiClust_update_z2_rcpp", (DL_FUNC) &_VoronoiClust_update_z2_rcpp, 7},
-    {"_VoronoiClust_get_log_prob_D_tesselation_2_rcpp", (DL_FUNC) &_VoronoiClust_get_log_prob_D_tesselation_2_rcpp, 5},
-    {"_VoronoiClust_get_log_prob_D_tesselation_rcpp", (DL_FUNC) &_VoronoiClust_get_log_prob_D_tesselation_rcpp, 5},
+    {"_VoronoiClust_mcmc_tessellation", (DL_FUNC) &_VoronoiClust_mcmc_tessellation, 4},
+    {"_VoronoiClust_mcmc_PY", (DL_FUNC) &_VoronoiClust_mcmc_PY, 4},
+    {"_VoronoiClust_mcmc_tessellation_multiview", (DL_FUNC) &_VoronoiClust_mcmc_tessellation_multiview, 4},
+    {"_VoronoiClust_mcmc_PY_multiview", (DL_FUNC) &_VoronoiClust_mcmc_PY_multiview, 4},
     {NULL, NULL, 0}
 };
 
